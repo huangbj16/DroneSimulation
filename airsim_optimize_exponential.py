@@ -49,6 +49,60 @@ class SafetyConstraint2D:
         return np.dot(A, u) + b
 
 
+class SafetyConstraint3D:
+    def __init__(self, a1, a2, a3, d1, d2, d3, n, ds):
+        self.a1 = a1
+        self.a2 = a2
+        self.a3 = a3
+        self.d1 = d1
+        self.d2 = d2
+        self.d3 = d3
+        self.k1 = 6
+        self.k2 = 36
+        self.n = n
+        self.ds = ds
+        print(self.a1, self.d1)
+    
+    def h(self, x):
+        return ((x[0]-self.d1)/self.a1)**self.n + \
+                ((x[1]-self.d2)/self.a2)**self.n + \
+                ((x[1]-self.d3)/self.a3)**self.n - \
+                self.ds
+    
+    def hd(self, x):
+        return self.n*((x[0]-self.d1)/self.a1)**(self.n-1) * x[3] / self.a1 + \
+                self.n*((x[1]-self.d2)/self.a2)**(self.n-1) * x[4] / self.a2 + \
+                self.n*((x[2]-self.d3)/self.a3)**(self.n-1) * x[5] / self.a3
+    
+    def hdd_x(self, x):
+        return (self.n * (self.n - 1) * ((x[0]-self.d1)/self.a1)**(self.n - 2) * x[3]**2 / self.a1**2) + \
+                (self.n * (self.n - 1) * ((x[1]-self.d2)/self.a2)**(self.n - 2) * x[4]**2 / self.a2**2) + \
+                (self.n * (self.n - 1) * ((x[2]-self.d3)/self.a3)**(self.n - 2) * x[5]**2 / self.a3**2)
+
+    def hdd_r(self, x):
+        return [0,
+                0,
+                0,
+                self.n*((x[0]-self.d1)/self.a1)**(self.n-1) / self.a1,
+                self.n*((x[1]-self.d2)/self.a2)**(self.n-1) / self.a2,
+                self.n*((x[2]-self.d3)/self.a3)**(self.n-1) / self.a3
+            ]
+
+    def calculate_A(self, x):
+        A = self.hdd_r(x)
+        return A
+    
+    def calculate_b(self, x):
+        b = self.hdd_x(x) + self.k2*self.hd(x) + self.k1*self.h(x)
+        return b
+    
+    def safety_constraint(self, u, x):
+        A = self.calculate_A(x)
+        b = self.calculate_b(x)
+        # print("new A b = ", A, b)
+        return np.dot(A, u) + b
+
+
 class ExponentialControlBarrierFunction:
     def __init__(self, safety_constraints):
         self.safety_constraint_list = safety_constraints
@@ -112,8 +166,9 @@ class ExponentialControlBarrierFunction:
         
         # Solve the optimization problem
         u_opt = minimize(objective, x0, method="SLSQP", constraints=constraints, tol=1e-6, options={'maxiter': 1000})
-        
-        # print(self.safety_constraint(u_opt.x, x_des))
+
+        print("ref safety = ", self.safety_constraint_list[0].safety_constraint(u_des, x_des))
+        print("alt safety = ", self.safety_constraint_list[0].safety_constraint(u_opt.x, x_des))
         # print(u_opt)
         # Return the optimal control input
         return u_opt.x
