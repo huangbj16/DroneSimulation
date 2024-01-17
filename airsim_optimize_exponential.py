@@ -106,6 +106,55 @@ class SafetyConstraint3D:
         return np.dot(A, u) + b
 
 
+class SafetyConstraintWall3D:
+    def __init__(self, a1, a2, a3, d1, d2, d3):
+        self.a1 = a1
+        self.a2 = a2
+        self.a3 = a3
+        self.d1 = d1
+        self.d2 = d2
+        self.d3 = d3
+        self.k1 = 6
+        self.k2 = 6
+        print("a1, d1 = ", self.a1, self.d1)
+    
+    def h(self, x):
+        return ((x[0]-self.d1)*self.a1) + \
+                ((x[1]-self.d2)*self.a2) + \
+                ((x[2]-self.d3)*self.a3)
+    
+    def hd(self, x):
+        return x[3] * self.a1 + \
+                x[4] * self.a2 + \
+                x[5] * self.a3
+    
+    def hdd_x(self, x):
+        return 0
+
+    def hdd_r(self, x):
+        return [0,
+                0,
+                0,
+                self.a1,
+                self.a2,
+                self.a3
+            ]
+
+    def calculate_A(self, x):
+        A = self.hdd_r(x)
+        return A
+    
+    def calculate_b(self, x):
+        b = self.hdd_x(x) + self.k2*self.hd(x) + self.k1*self.h(x)
+        return b
+    
+    def safety_constraint(self, u, x):
+        A = self.calculate_A(x)
+        b = self.calculate_b(x)
+        # print("new A b = ", A, b)
+        return np.dot(A, u) + b
+
+
 class ExponentialControlBarrierFunction:
     def __init__(self, safety_constraints):
         self.safety_constraint_list = safety_constraints

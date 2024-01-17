@@ -2,7 +2,7 @@ import airsim
 import os
 import numpy as np
 from controller_input import XboxController
-from airsim_optimize_exponential import ExponentialControlBarrierFunction, SafetyConstraint2D, SafetyConstraint3D
+from airsim_optimize_exponential import ExponentialControlBarrierFunction, SafetyConstraint2D, SafetyConstraint3D, SafetyConstraintWall3D
 from matplotlib.patches import Circle, Rectangle
 import matplotlib.pyplot as plt
 import time
@@ -26,9 +26,9 @@ client.moveToPositionAsync(0, 0, -3, 1)
 test_array = []
 for i in range(10):
     k = client.getMultirotorState().kinematics_estimated
-    print(k.position, k.linear_velocity, k.linear_acceleration)
+    # print(k.position, k.linear_velocity, k.linear_acceleration)
     test_array.append(k.position.z_val)
-print(np.mean(test_array), np.std(test_array))
+# print(np.mean(test_array), np.std(test_array))
 
 # connect to game controller
 gameController = XboxController()
@@ -49,14 +49,42 @@ def read_cubes_file(file_path):
 
 cubes_data = read_cubes_file(filepath)
 
-# epsd1 = SafetyConstraint2D(1.0, 1.0, 10.0, 2.0, 2.0, 9.0)
-# epsd2 = SafetyConstraint2D(1.0, 1.0, 20.0, -4.0, 2.0, 9.0)
-# epsd3 = SafetyConstraint2D(1.0, 1.0, 30.0, 2.0, 2.0, 4.0)
-# epsd4 = SafetyConstraint2D(1.0, 1.0, 40.0, -1.0, 2.0, 4.0)
+def get_forward_vector(roll, pitch, yaw):
+    forward = np.array([0, 0, 1], dtype=np.float32)
+    if roll != 0:
+        roll_radians = np.radians(roll)
+        rotation_roll = np.array([[1, 0, 0],
+                                [0, np.cos(roll_radians), -np.sin(roll_radians)],
+                                [0, np.sin(roll_radians), np.cos(roll_radians)]])
+        forward = rotation_roll.dot(forward)
+    if pitch != 0:
+        pitch_radians = np.radians(pitch)
+        rotation_pitch = np.array([[np.cos(pitch_radians), 0, np.sin(pitch_radians)],
+                            [0, 1, 0],
+                            [-np.sin(pitch_radians), 0, np.cos(pitch_radians)]])
+        forward = rotation_pitch.dot(forward)
+    if yaw != 0:
+        yaw_radians = np.radians(yaw)
+        rotation_yaw = np.array([[np.cos(yaw_radians), -np.sin(yaw_radians), 0],
+                              [np.sin(yaw_radians), np.cos(yaw_radians), 0],
+                              [0, 0, 1]])
+        forward = rotation_yaw.dot(forward)
+    return np.round(forward, 3)
+
 obstacles = []
 for cube in cubes_data:
-    print(cube)
-    obstacles.append(SafetyConstraint3D(cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 2, 4))
+    if cube["Type"] == "Plane":
+        forward_vector = get_forward_vector(-cube["RotationRoll"], -cube["RotationPitch"], cube["RotationYaw"])
+        print("forward = ", forward_vector)
+        obstacles.append(SafetyConstraintWall3D(forward_vector[0], forward_vector[1], forward_vector[2], cube['LocationX']/100+forward_vector[0], cube['LocationY']/100+forward_vector[1], cube['LocationZ']/100+forward_vector[2]))
+    elif cube["Type"] == "Cube":
+        obstacles.append(SafetyConstraint3D(cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 4, 16))
+    elif cube["Type"] == "Sphere":
+        obstacles.append(SafetyConstraint3D(cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 2, 4))
+    elif cube["Type"] == "Cylinder":
+        obstacles.append(SafetyConstraint2D(cube['ScaleX'], cube['ScaleY'], cube['LocationX']/100, cube['LocationY']/100, 2, 4))
+    else:
+        print("wrong obstacle type", cube["Type"])
 ecbf = ExponentialControlBarrierFunction(obstacles)
 
 
