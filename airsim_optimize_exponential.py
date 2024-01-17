@@ -3,6 +3,7 @@ from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator
+import json
 
 class SafetyConstraint2D:
     def __init__(self, a1, a2, d1, d2, n, ds):
@@ -60,7 +61,7 @@ class SafetyConstraint3D:
         self.d2 = d2
         self.d3 = d3
         self.k1 = 6
-        self.k2 = 24
+        self.k2 = 6
         self.n = n
         self.ds = ds
         print("a1, d1 = ", self.a1, self.d1)
@@ -68,7 +69,7 @@ class SafetyConstraint3D:
     def h(self, x):
         return ((x[0]-self.d1)/self.a1)**self.n + \
                 ((x[1]-self.d2)/self.a2)**self.n + \
-                ((x[1]-self.d3)/self.a3)**self.n - \
+                ((x[2]-self.d3)/self.a3)**self.n - \
                 self.ds
     
     def hd(self, x):
@@ -173,24 +174,45 @@ class ExponentialControlBarrierFunction:
         # print("alt safety = ", self.safety_constraint_list[0].safety_constraint(u_opt.x, x_des))
         # print(u_opt)
         # Return the optimal control input
-        return u_opt.x
+        return u_opt.x, u_opt.success
 
 
 
 
 if __name__ == "__main__":
-    cube = SafetyConstraint3D(1.0, 1.0, 1.0, 5.0, 0.0, 2.0, 4, 16)
-    ecbf = ExponentialControlBarrierFunction([cube])
+    filepath = 'D:/2023Fall/DroneSimulation/TestScene/WindowsNoEditor/Blocks/Content/Settings/cubes.txt'
+
+    def read_cubes_file(file_path):
+        cubes = []
+        with open(file_path, 'r') as file:
+            for line in file:
+                cubes.append(json.loads(line.strip()))
+        return cubes
+
+    cubes_data = read_cubes_file(filepath)
+
+    # epsd1 = SafetyConstraint2D(1.0, 1.0, 10.0, 2.0, 2.0, 9.0)
+    # epsd2 = SafetyConstraint2D(1.0, 1.0, 20.0, -4.0, 2.0, 9.0)
+    # epsd3 = SafetyConstraint2D(1.0, 1.0, 30.0, 2.0, 2.0, 4.0)
+    # epsd4 = SafetyConstraint2D(1.0, 1.0, 40.0, -1.0, 2.0, 4.0)
+    obstacles = []
+    for cube in cubes_data:
+        print(cube)
+        obstacles.append(SafetyConstraint3D(cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 4, 16))
+    ecbf = ExponentialControlBarrierFunction(obstacles)
+
+    # cube = SafetyConstraint3D(1.0, 1.0, 1.0, 5.0, 0.0, 2.0, 4, 16)
+    # ecbf = ExponentialControlBarrierFunction([cube])
     # Example usage
-    x_des = np.array([1, 0.5, 2, 0, 0, 0], dtype=np.float32)  # initial state of the system
-    u_des = np.array([0, 0, 0, 20, 0, 0], dtype=np.float32)
+    x_des = np.array([0, 1, 2, 0, 0, 0], dtype=np.float32)  # initial state of the system
+    u_des = np.array([0, 0, 0, 5, 0, 0], dtype=np.float32)
     delta = 0.1
 
     path = []
 
-    for i in range(60):
+    for i in range(100):
         # Find the optimal control input that keeps the system within the safe set
-        u_safe = ecbf.control_input_optimization(x_des, u_des)
+        u_safe, success = ecbf.control_input_optimization(x_des, u_des)
         u_safe = np.round(u_safe, 3)
         print(f"Optimal control input: {u_safe}")
         x_dot = ecbf.f(x_des) + ecbf.g(x_des) @ u_safe
@@ -206,15 +228,16 @@ if __name__ == "__main__":
     ax.scatter(path[:, 0], path[:, 1], path[:, 2], c = np.arange(0, 1, step = 1.0/path.shape[0]), cmap=cm.coolwarm)
 
     # Make data.
-    X = np.arange(3, 7, 0.1)
-    Y = np.arange(-2, 2, 0.1)
-    X, Y = np.meshgrid(X, Y)
-    Z = (16 - (X-5)**4 - Y**4)**(0.25)
-    Z1 = 2 + Z
-    Z2 = 2 - Z
-    # Plot the surface.
-    surf = ax.plot_surface(X, Y, Z1, cmap=cm.coolwarm, linewidth=0, antialiased=False)
-    surf = ax.plot_surface(X, Y, Z2, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+    for obs in obstacles:
+        X = np.arange(obs.d1-2, obs.d1+2, 0.1)
+        Y = np.arange(obs.d2-2, obs.d2+2, 0.1)
+        X, Y = np.meshgrid(X, Y)
+        Z = (16 - (X-obs.d1)**4 - (Y-obs.d2)**4)**(0.25)
+        Z1 = obs.d3 + Z
+        Z2 = obs.d3 - Z
+        # Plot the surface.
+        surf = ax.plot_surface(X, Y, Z1, cmap=cm.coolwarm, linewidth=0, antialiased=False)
+        surf = ax.plot_surface(X, Y, Z2, cmap=cm.coolwarm, linewidth=0, antialiased=False)
     # Customize the z axis.
     # ax.set_zlim(-0.01, 4.01)
     ax.zaxis.set_major_locator(LinearLocator(10))
