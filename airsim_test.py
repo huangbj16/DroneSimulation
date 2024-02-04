@@ -2,6 +2,7 @@ import airsim
 import os
 import numpy as np
 from controller_input import XboxController
+from test_socket_client import FalconSocketClient
 from airsim_optimize_exponential import ExponentialControlBarrierFunction, SafetyConstraint2D, SafetyConstraint3D, SafetyConstraintWall3D
 from matplotlib.patches import Circle, Rectangle
 import matplotlib.pyplot as plt
@@ -26,12 +27,15 @@ client.moveToPositionAsync(0, 0, -3, 1)
 test_array = []
 for i in range(10):
     k = client.getMultirotorState().kinematics_estimated
-    # print(k.position, k.linear_velocity, k.linear_acceleration)
+    # print(k.position, k.linear_velocity, k.linear_acceleration)f
     test_array.append(k.position.z_val)
 # print(np.mean(test_array), np.std(test_array))
 
-# connect to game controller
-gameController = XboxController()
+### connect to game controller or falcon controller
+### xbox controller
+# gameController = XboxController()
+### falcon controller
+gameController = FalconSocketClient()
 if not gameController.initSuccess:
     exit(-1)
 
@@ -98,11 +102,16 @@ while True:
     try:
         # read user input from controller
         user_input = gameController.get_controller_input()
+        print(user_input)
         u_ref = np.zeros(6, dtype=np.float32)
         # u_ref[3] = 20.0
-        u_ref[3] = -np.round(user_input['w_axis'], 3) * 10
-        u_ref[4] = np.round(user_input['z_axis'], 3) * 10
-        u_ref[5] = -np.round(user_input['y_axis'], 3) * 10 - 3
+        ###
+        # u_ref[3] = -np.round(user_input['w_axis'], 3) * 10
+        # u_ref[4] = np.round(user_input['z_axis'], 3) * 10
+        # u_ref[5] = -np.round(user_input['y_axis'], 3) * 10 - 3
+        u_ref[3] = -np.round(user_input[2], 3) * 400
+        u_ref[4] = np.round(user_input[0], 3) * 400
+        u_ref[5] = np.round(user_input[1], 3) * 400
 
         # read drone state from AirSim
         pos = client.getMultirotorState().kinematics_estimated.position
