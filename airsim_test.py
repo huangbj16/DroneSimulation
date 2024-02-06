@@ -107,7 +107,7 @@ while True:
         v_ref = np.zeros(3, dtype=np.float32)
         u_ref = np.zeros(6, dtype=np.float32)
         # u_ref[3] = 20.0
-        v_rot = np.round(user_input['x_axis'], 3) * 10
+        v_rot = np.round(user_input['x_axis'], 3)
         v_ref[0] = -np.round(user_input['w_axis'], 3) * 10
         v_ref[1] = np.round(user_input['z_axis'], 3) * 10
         v_ref[2] = -np.round(user_input['y_axis'], 3) * 10
@@ -146,10 +146,15 @@ while True:
         # print("x_safe = ", x_safe, "\n")
 
         # update AirSim drone state
-        if np.linalg.norm(x_safe[3:6]) > 1e-4:
-            client.moveByVelocityAsync(x_safe[3], x_safe[4], -x_safe[5], duration=1.0)
-        # if np.abs(v_rot) > 1e-2:
-        #     client.moveByAngleRatesZAsync(0, 0, -v_rot, z = -x_safe[2], duration=0.01).join()
+        # if np.abs(v_rot) > 0.3:
+            # client.moveByAngleRatesZAsync(0, 0, -v_rot, z = -x_ref[2], duration=0.1)
+            # client.moveByAngleRatesThrottleAsync(0, 0, -v_rot, throttle = 0.5945, duration=0.1)
+        if np.linalg.norm(x_safe[3:6]) > 1e-2 or np.abs(v_rot) > 0.3:
+            print("control")
+            client.moveByVelocityAsync(x_safe[3], x_safe[4], -x_safe[5], duration=0.01, yaw_mode=airsim.YawMode(True, v_rot*60))
+        else:
+            print("idle")
+            client.moveByVelocityAsync(0, 0, 0, duration=0.01)
         # client.moveByRollPitchYawZAsync(0, 0, -v_rot, z = -x_safe[2], duration=0.01).join()
         # client.moveByAngleRatesThrottleAsync(-v_rot, 0, 0, throttle=1.0, duration=0.1).join()
         # client.rotateByYawRateAsync(-v_rot, duration=0.1)
@@ -159,17 +164,17 @@ while True:
         count += 1
 
         current_time = time.time()  # Get the current time
-        if current_time - start_time > 0.1: 
-            print("FPS = ", count)
-            print("ori = ", ori)
-            count = 0
-            start_time = current_time 
-            print("x_ref = ", x_ref)
-            print("v_ref = ", v_ref)
-            print("v_rot = ", v_rot)
-            print("u_ref = ", u_ref)
-            print("u_safe = ", u_safe)
-            print("x_safe = ", x_safe, "\n")
+        # if current_time - start_time > 1.0: 
+            # print("FPS = ", count)
+            # print("ori = ", ori)
+            # count = 0
+            # start_time = current_time 
+            # print("x_ref = ", x_ref)
+            # print("v_ref = ", v_ref)
+            # print("v_rot = ", v_rot)
+            # print("u_ref = ", u_ref)
+            # print("u_safe = ", u_safe)
+            # print("x_safe = ", x_safe, "\n")
             # print("ref safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_ref, x_ref))
             # print("alt safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_safe, x_ref))
     
