@@ -8,8 +8,9 @@ from matplotlib.patches import Circle, Rectangle
 import matplotlib.pyplot as plt
 import time
 import json
+from scipy.spatial.transform import Rotation as R
 
-np.set_printoptions(precision=3, suppress=False)
+np.set_printoptions(precision=3, suppress=True)
 
 
 # connect to the AirSim simulator
@@ -33,9 +34,9 @@ for i in range(10):
 
 ### connect to game controller or falcon controller
 ### xbox controller
-# gameController = XboxController()
+gameController = XboxController()
 ### falcon controller
-gameController = FalconSocketClient()
+# gameController = FalconSocketClient()
 if not gameController.initSuccess:
     exit(-1)
 
@@ -102,22 +103,34 @@ while True:
     try:
         # read user input from controller
         user_input = gameController.get_controller_input()
-        print(user_input)
+        # print(user_input)
+        v_ref = np.zeros(3, dtype=np.float32)
         u_ref = np.zeros(6, dtype=np.float32)
         # u_ref[3] = 20.0
-        ###
-        # u_ref[3] = -np.round(user_input['w_axis'], 3) * 10
-        # u_ref[4] = np.round(user_input['z_axis'], 3) * 10
-        # u_ref[5] = -np.round(user_input['y_axis'], 3) * 10 - 3
-        u_ref[3] = -np.round(user_input[2], 3) * 400
-        u_ref[4] = np.round(user_input[0], 3) * 400
-        u_ref[5] = np.round(user_input[1], 3) * 400
+        v_rot = np.round(user_input['x_axis'], 3) * 10
+        v_ref[0] = -np.round(user_input['w_axis'], 3) * 10
+        v_ref[1] = np.round(user_input['z_axis'], 3) * 10
+        v_ref[2] = -np.round(user_input['y_axis'], 3) * 10
+        # if np.linalg.norm(v_ref) < 1e-6:
+        #     client.hoverAsync()
+        #     continue
+        # v_ref[0] = -np.round(user_input[2], 3) * 400
+        # v_ref[1] = np.round(user_input[0], 3) * 400
+        # v_ref[2] = np.round(user_input[1], 3) * 400
 
         # read drone state from AirSim
         pos = client.getMultirotorState().kinematics_estimated.position
         vel = client.getMultirotorState().kinematics_estimated.linear_velocity
+        ori = client.getMultirotorState().kinematics_estimated.orientation
         x_ref = np.array([pos.x_val, pos.y_val, -pos.z_val, vel.x_val, vel.y_val, -vel.z_val])
         # print("x_ref = ", x_ref)
+
+        # convert the user input to drone orientation
+        rotation = R.from_quat([0, 0, ori.z_val, ori.w_val])
+        v_ref_rotated = rotation.apply(v_ref)
+        # calculate diff between v_ref and v_cur, convert into acc command
+        a_ref = v_ref_rotated - x_ref[3:6]
+        u_ref[3:6] = a_ref
 
         # use ECBF to find safe input
         u_safe, success = ecbf.control_input_optimization(x_ref, u_ref)
@@ -128,29 +141,37 @@ while True:
         # x_dot[0:3] = x_dot[0:3] + x_dot[3:6] * delta_time
         # x_safe = x_ref + x_dot * delta_time 
         # x_safe = np.round(x_safe, 3)
-        x_safe = x_ref + u_safe * delta_time
+        x_safe = x_ref + u_safe
         path.append(x_safe[:2])
         # print("x_safe = ", x_safe, "\n")
 
         # update AirSim drone state
-        client.moveByVelocityAsync(x_safe[3], x_safe[4], -x_safe[5], duration=1.0)
+        if np.linalg.norm(x_safe[3:6]) > 1e-4:
+            client.moveByVelocityAsync(x_safe[3], x_safe[4], -x_safe[5], duration=1.0)
+        # if np.abs(v_rot) > 1e-2:
+        #     client.moveByAngleRatesZAsync(0, 0, -v_rot, z = -x_safe[2], duration=0.01).join()
+        # client.moveByRollPitchYawZAsync(0, 0, -v_rot, z = -x_safe[2], duration=0.01).join()
+        # client.moveByAngleRatesThrottleAsync(-v_rot, 0, 0, throttle=1.0, duration=0.1).join()
+        # client.rotateByYawRateAsync(-v_rot, duration=0.1)
         # client.moveByVelocityZAsync(x_safe[3], x_safe[4], -x_safe[2], duration=1.0)
         # client.moveToPositionAsync(x_safe[0], x_safe[1], -x_safe[2], 1.0)
         # time.sleep(delta_time)
         count += 1
 
         current_time = time.time()  # Get the current time
-        if current_time - start_time > 1: 
+        if current_time - start_time > 0.1: 
             print("FPS = ", count)
+            print("ori = ", ori)
             count = 0
-            start_time = current_time
+            start_time = current_time 
             print("x_ref = ", x_ref)
+            print("v_ref = ", v_ref)
+            print("v_rot = ", v_rot)
             print("u_ref = ", u_ref)
             print("u_safe = ", u_safe)
             print("x_safe = ", x_safe, "\n")
-            print("success = ", success)
-            print("ref safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_ref, x_ref))
-            print("alt safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_safe, x_ref))
+            # print("ref safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_ref, x_ref))
+            # print("alt safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_safe, x_ref))
     
     except KeyboardInterrupt: 
         path = np.array(path)

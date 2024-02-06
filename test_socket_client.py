@@ -20,7 +20,7 @@ class FalconSocketClient:
         command = json.dumps(command).encode('utf-8')
         self.client.sendall(command)
         response = self.client.recv(1024)
-        print('Received', response.decode('utf-8'))
+        # print('Received', response.decode('utf-8'))
         response = json.loads(response.decode('utf-8'))
         position = response['joystick_position']
         return position
