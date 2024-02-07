@@ -34,9 +34,9 @@ for i in range(10):
 
 ### connect to game controller or falcon controller
 ### xbox controller
-# gameController = XboxController()
+gameController = XboxController()
 ### falcon controller
-gameController = FalconSocketClient()
+# gameController = FalconSocketClient()
 if not gameController.initSuccess:
     exit(-1)
 
@@ -109,37 +109,37 @@ while True:
         # u_ref[3] = 20.0
 
         ### xbox controller
-        # v_rot = np.round(user_input['x_axis'], 3)
-        # v_ref[0] = -np.round(user_input['w_axis'], 3) * 10
-        # v_ref[1] = np.round(user_input['z_axis'], 3) * 10
-        # v_ref[2] = -np.round(user_input['y_axis'], 3) * 10
+        v_rot = np.round(user_input['x_axis'], 3)
+        v_ref[0] = -np.round(user_input['w_axis'], 3) * 10
+        v_ref[1] = np.round(user_input['z_axis'], 3) * 10
+        v_ref[2] = -np.round(user_input['y_axis'], 3) * 10
         
         ### falcon controller
-        button_val = gameController.get_button_state()
-        v_rot = 0
-        if (button_val & 2) == 2:
-            v_rot = -1.0
-        if (button_val & 8) == 8:
-            v_rot = 1.0
-        v_ref[0] = -np.round(user_input[2], 3) * 200
-        v_ref[1] = np.round(user_input[0], 3) * 200
-        v_ref[2] = np.round(user_input[1], 3) * 200
+        # button_val = gameController.get_button_state()
+        # v_rot = 0
+        # if (button_val & 2) == 2:
+        #     v_rot = -1.0
+        # if (button_val & 8) == 8:
+        #     v_rot = 1.0
+        # v_ref[0] = -np.round(user_input[2], 3) * 200
+        # v_ref[1] = np.round(user_input[0], 3) * 200
+        # v_ref[2] = np.round(user_input[1], 3) * 200
 
-        # read drone state from AirSim
+        ### read drone state from AirSim
         pos = client.getMultirotorState().kinematics_estimated.position
         vel = client.getMultirotorState().kinematics_estimated.linear_velocity
         ori = client.getMultirotorState().kinematics_estimated.orientation
         x_ref = np.array([pos.x_val, pos.y_val, -pos.z_val, vel.x_val, vel.y_val, -vel.z_val])
         # print("x_ref = ", x_ref)
 
-        # convert the user input to drone orientation
+        ### convert the user input to drone orientation
         rotation = R.from_quat([0, 0, ori.z_val, ori.w_val])
         v_ref_rotated = rotation.apply(v_ref)
         # calculate diff between v_ref and v_cur, convert into acc command
         a_ref = v_ref_rotated - x_ref[3:6]
         u_ref[3:6] = a_ref
 
-        # use ECBF to find safe input
+        ### use ECBF to find safe input
         u_safe, success = ecbf.control_input_optimization(x_ref, u_ref)
         u_safe = np.round(u_safe, 3)
         # print("u_ref = ", u_ref)
@@ -152,7 +152,7 @@ while True:
         path.append(x_safe[:2])
         # print("x_safe = ", x_safe, "\n")
 
-        # update AirSim drone state
+        ### update AirSim drone state
         # if np.abs(v_rot) > 0.3:
             # client.moveByAngleRatesZAsync(0, 0, -v_rot, z = -x_ref[2], duration=0.1)
             # client.moveByAngleRatesThrottleAsync(0, 0, -v_rot, throttle = 0.5945, duration=0.1)
@@ -168,19 +168,26 @@ while True:
         # client.moveByVelocityZAsync(x_safe[3], x_safe[4], -x_safe[2], duration=1.0)
         # client.moveToPositionAsync(x_safe[0], x_safe[1], -x_safe[2], 1.0)
         # time.sleep(delta_time)
+            
+        ### apply force feedback
+        u_diff = u_safe[3:6] - u_ref[3:6]
+        u_diff_rot = rotation.inv().apply(u_diff)
+        ### falcon controller
+        # gameController.set_force([u_diff_rot[1], u_diff_rot[2], -u_diff_rot[0]])
+        
+        ### debug output
         count += 1
-
         current_time = time.time()  # Get the current time
-        # if current_time - start_time > 1.0: 
-            # print("FPS = ", count)
+        if current_time - start_time > 1.0: 
+            print("FPS = ", count)
             # print("ori = ", ori)
-            # count = 0
-            # start_time = current_time 
+            count = 0
+            start_time = current_time 
             # print("x_ref = ", x_ref)
             # print("v_ref = ", v_ref)
             # print("v_rot = ", v_rot)
-            # print("u_ref = ", u_ref)
-            # print("u_safe = ", u_safe)
+            print("u_ref = ", u_ref)
+            print("u_safe = ", u_safe)
             # print("x_safe = ", x_safe, "\n")
             # print("ref safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_ref, x_ref))
             # print("alt safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_safe, x_ref))
