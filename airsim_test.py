@@ -34,9 +34,9 @@ for i in range(10):
 
 ### connect to game controller or falcon controller
 ### xbox controller
-gameController = XboxController()
+# gameController = XboxController()
 ### falcon controller
-# gameController = FalconSocketClient()
+gameController = FalconSocketClient()
 if not gameController.initSuccess:
     exit(-1)
 
@@ -107,16 +107,23 @@ while True:
         v_ref = np.zeros(3, dtype=np.float32)
         u_ref = np.zeros(6, dtype=np.float32)
         # u_ref[3] = 20.0
-        v_rot = np.round(user_input['x_axis'], 3)
-        v_ref[0] = -np.round(user_input['w_axis'], 3) * 10
-        v_ref[1] = np.round(user_input['z_axis'], 3) * 10
-        v_ref[2] = -np.round(user_input['y_axis'], 3) * 10
-        # if np.linalg.norm(v_ref) < 1e-6:
-        #     client.hoverAsync()
-        #     continue
-        # v_ref[0] = -np.round(user_input[2], 3) * 400
-        # v_ref[1] = np.round(user_input[0], 3) * 400
-        # v_ref[2] = np.round(user_input[1], 3) * 400
+
+        ### xbox controller
+        # v_rot = np.round(user_input['x_axis'], 3)
+        # v_ref[0] = -np.round(user_input['w_axis'], 3) * 10
+        # v_ref[1] = np.round(user_input['z_axis'], 3) * 10
+        # v_ref[2] = -np.round(user_input['y_axis'], 3) * 10
+        
+        ### falcon controller
+        button_val = gameController.get_button_state()
+        v_rot = 0
+        if (button_val & 2) == 2:
+            v_rot = -1.0
+        if (button_val & 8) == 8:
+            v_rot = 1.0
+        v_ref[0] = -np.round(user_input[2], 3) * 200
+        v_ref[1] = np.round(user_input[0], 3) * 200
+        v_ref[2] = np.round(user_input[1], 3) * 200
 
         # read drone state from AirSim
         pos = client.getMultirotorState().kinematics_estimated.position
@@ -150,10 +157,10 @@ while True:
             # client.moveByAngleRatesZAsync(0, 0, -v_rot, z = -x_ref[2], duration=0.1)
             # client.moveByAngleRatesThrottleAsync(0, 0, -v_rot, throttle = 0.5945, duration=0.1)
         if np.linalg.norm(x_safe[3:6]) > 1e-2 or np.abs(v_rot) > 0.3:
-            print("control")
+            # print("control")
             client.moveByVelocityAsync(x_safe[3], x_safe[4], -x_safe[5], duration=0.01, yaw_mode=airsim.YawMode(True, v_rot*60))
         else:
-            print("idle")
+            # print("idle")
             client.moveByVelocityAsync(0, 0, 0, duration=0.01)
         # client.moveByRollPitchYawZAsync(0, 0, -v_rot, z = -x_safe[2], duration=0.01).join()
         # client.moveByAngleRatesThrottleAsync(-v_rot, 0, 0, throttle=1.0, duration=0.1).join()

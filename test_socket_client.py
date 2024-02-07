@@ -32,6 +32,16 @@ class FalconSocketClient:
         response = self.client.recv(1024)
         print('Received', response.decode('utf-8'))
 
+    def get_button_state(self):
+        command = {'command': 'get_button_state'}
+        command = json.dumps(command).encode('utf-8')
+        self.client.sendall(command)
+        response = self.client.recv(1024)
+        print('Received', response.decode('utf-8'))
+        response = json.loads(response.decode('utf-8'))
+        button = response['button_state']
+        return button
+
 if __name__ == '__main__':
     # Example usage
     client = FalconSocketClient()
