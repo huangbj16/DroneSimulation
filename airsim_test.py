@@ -9,9 +9,11 @@ import matplotlib.pyplot as plt
 import time
 import json
 from scipy.spatial.transform import Rotation as R
+from tactile_feedback_module import TactileFeedbackModule
 
 np.set_printoptions(precision=3, suppress=True)
 
+tactile_module = TactileFeedbackModule()
 
 # connect to the AirSim simulator
 client = airsim.MultirotorClient()
@@ -162,7 +164,7 @@ while True:
         else:
             # print("idle")
             client.moveByVelocityAsync(0, 0, 0, duration=0.01)
-        # client.moveByRollPitchYawZAsync(0, 0, -v_rot, z = -x_safe[2], duration=0.01).join()
+        # client.moveByRollPitchYawZAsync(0, 0, -v_rot, z = -x_safe[], duration=0.01).join()
         # client.moveByAngleRatesThrottleAsync(-v_rot, 0, 0, throttle=1.0, duration=0.1).join()
         # client.rotateByYawRateAsync(-v_rot, duration=0.1)
         # client.moveByVelocityZAsync(x_safe[3], x_safe[4], -x_safe[2], duration=1.0)
@@ -170,24 +172,56 @@ while True:
         # time.sleep(delta_time)
             
         ### apply force feedback
-        u_diff = u_safe[3:6] - u_ref[3:6]
-        u_diff_rot = rotation.inv().apply(u_diff)
         ### falcon controller
+        # u_diff = u_safe[3:6] - u_ref[3:6]
+        # u_diff_rot = rotation.inv().apply(u_diff)
         # gameController.set_force([u_diff_rot[1], u_diff_rot[2], -u_diff_rot[0]])
+        ### xbox controller, tactile feedback
+        if not np.allclose(u_ref, u_safe, rtol=1e-05, atol=1e-08): # input is modified
+            for i in range(len(obstacles)):
+                obs = obstacles[i]
+                if obs.safety_constraint(u_ref, x_ref) < 0: # obstacle affected
+                    if type(obs) == SafetyConstraint3D:
+                        relative_direction = np.array([obs.d1, obs.d2, obs.d3]) - x_ref[0:3]
+                    elif type(obs) == SafetyConstraint2D:
+                        relative_direction = np.array([obs.d1, obs.d2, 0]) - np.array([x_ref[0], x_ref[1], 0])
+                    elif type(obs) == SafetyConstraintWall3D:
+                        relative_direction = np.array([-obs.a1, -obs.a2, -obs.a3])
+                    else:
+                        exit(-1)
+                    # print(i, type(obs), relative_direction)
+                    relative_direction = rotation.inv().apply(relative_direction) # rotate to body frame
+                    relative_direction /= np.linalg.norm(relative_direction)
+                    angle_distances = np.dot(tactile_module.motor_directions, relative_direction)
+                    # nearest_index = np.argmax(angle_distances)
+                    nearest_indices = np.where(angle_distances == np.max(angle_distances))[0]
+                    # print(nearest_indices)
+                    for nearest_index in nearest_indices:
+                        command = {
+                            'addr':tactile_module.motor_ids[nearest_index], 
+                            'mode':1,
+                            'duty':15, # default
+                            'freq':2, # default
+                            'wave':0, # default
+                        }
+                        tactile_module.set_vibration(command)
+            tactile_module.flush_update()
+                        
         
         ### debug output
         count += 1
         current_time = time.time()  # Get the current time
         if current_time - start_time > 1.0: 
             print("FPS = ", count)
+            # print("success = ", success)
             # print("ori = ", ori)
             count = 0
             start_time = current_time 
             # print("x_ref = ", x_ref)
             # print("v_ref = ", v_ref)
             # print("v_rot = ", v_rot)
-            print("u_ref = ", u_ref)
-            print("u_safe = ", u_safe)
+            # print("u_ref = ", u_ref)
+            # print("u_safe = ", u_safe)
             # print("x_safe = ", x_safe, "\n")
             # print("ref safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_ref, x_ref))
             # print("alt safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_safe, x_ref))
