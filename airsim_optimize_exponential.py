@@ -64,7 +64,7 @@ class SafetyConstraint3D:
         self.k2 = 6
         self.n = n
         self.ds = ds
-        print("a1, d1 = ", self.a1, self.d1)
+        # print("a1, d1 = ", self.a1, self.d1)
     
     def h(self, x):
         return ((x[0]-self.d1)/self.a1)**self.n + \
@@ -107,16 +107,24 @@ class SafetyConstraint3D:
 
 
 class SafetyConstraintWall3D:
-    def __init__(self, a1, a2, a3, d1, d2, d3):
+    def __init__(self, a1, a2, a3, d1, d2, d3, s1, s2, s3, ort1, ort2):
         self.a1 = a1
         self.a2 = a2
         self.a3 = a3
         self.d1 = d1
         self.d2 = d2
         self.d3 = d3
+        self.s1 = s1
+        self.s2 = s2
+        self.s3 = s3
+        self.plane_normal = np.array([self.a1, self.a2, self.a3])
+        self.plane_point = np.array([self.d1, self.d2, self.d3])
+        self.scale = np.array([self.s1, self.s2, self.s3])
+        self.plane_ort1 = ort1
+        self.plane_ort2 = ort2
         self.k1 = 6
         self.k2 = 6
-        print("a1, d1 = ", self.a1, self.d1)
+        # print("a1, d1 = ", self.a1, self.d1)
     
     def h(self, x):
         return ((x[0]-self.d1)*self.a1) + \
@@ -148,11 +156,29 @@ class SafetyConstraintWall3D:
         b = self.hdd_x(x) + self.k2*self.hd(x) + self.k1*self.h(x)
         return b
     
+    def isInRange(self, x):
+        # Vector from point on plane to point in space
+        point_vector = x[0:3] - self.plane_point
+        # Distance from point to plane along the normal
+        distance = np.dot(point_vector, self.plane_normal)
+        # Projected point
+        projected_point = x[0:3] - distance * self.plane_normal
+        distance_ort1 = np.abs(np.dot(projected_point-self.plane_point, self.plane_ort1))
+        distance_ort2 = np.abs(np.dot(projected_point-self.plane_point, self.plane_ort2))
+        if distance_ort1 < self.scale[0] and distance_ort2 < self.scale[1]:
+            return True
+        else:
+            return False
+
     def safety_constraint(self, u, x):
-        A = self.calculate_A(x)
-        b = self.calculate_b(x)
-        # print("new A b = ", A, b)
-        return np.dot(A, u) + b
+        if self.isInRange(x):
+            A = self.calculate_A(x)
+            b = self.calculate_b(x)
+            # print("new A b = ", A, b)
+            return np.dot(A, u) + b
+        else: # none of my business
+            return 1.0
+
 
 
 class ExponentialControlBarrierFunction:

@@ -56,32 +56,42 @@ cubes_data = read_cubes_file(filepath)
 
 def get_forward_vector(roll, pitch, yaw):
     forward = np.array([0, 0, 1], dtype=np.float32)
+    ort1 = np.array([1, 0, 0], dtype=np.float32)
+    ort2 = np.array([0, 1, 0], dtype=np.float32)
     if roll != 0:
         roll_radians = np.radians(roll)
         rotation_roll = np.array([[1, 0, 0],
                                 [0, np.cos(roll_radians), -np.sin(roll_radians)],
                                 [0, np.sin(roll_radians), np.cos(roll_radians)]])
         forward = rotation_roll.dot(forward)
+        ort1 = rotation_roll.dot(ort1)
+        ort2 = rotation_roll.dot(ort2)
     if pitch != 0:
         pitch_radians = np.radians(pitch)
         rotation_pitch = np.array([[np.cos(pitch_radians), 0, np.sin(pitch_radians)],
                             [0, 1, 0],
                             [-np.sin(pitch_radians), 0, np.cos(pitch_radians)]])
         forward = rotation_pitch.dot(forward)
+        ort1 = rotation_pitch.dot(ort1)
+        ort2 = rotation_pitch.dot(ort2)
     if yaw != 0:
         yaw_radians = np.radians(yaw)
         rotation_yaw = np.array([[np.cos(yaw_radians), -np.sin(yaw_radians), 0],
                               [np.sin(yaw_radians), np.cos(yaw_radians), 0],
                               [0, 0, 1]])
         forward = rotation_yaw.dot(forward)
-    return np.round(forward, 3)
+        ort1 = rotation_yaw.dot(ort1)
+        ort2 = rotation_yaw.dot(ort2)
+    return np.round(forward, 3), np.round(ort1, 3), np.round(ort2, 3)
 
 obstacles = []
 for cube in cubes_data:
     if cube["Type"] == "Plane":
-        forward_vector = get_forward_vector(-cube["RotationRoll"], -cube["RotationPitch"], cube["RotationYaw"])
+        forward_vector, ort1, ort2 = get_forward_vector(-cube["RotationRoll"], -cube["RotationPitch"], cube["RotationYaw"])
         print("forward = ", forward_vector)
-        obstacles.append(SafetyConstraintWall3D(forward_vector[0], forward_vector[1], forward_vector[2], cube['LocationX']/100+forward_vector[0], cube['LocationY']/100+forward_vector[1], cube['LocationZ']/100+forward_vector[2]))
+        print("ort1 = ", ort1)
+        print("ort2 = ", ort2)
+        obstacles.append(SafetyConstraintWall3D(forward_vector[0], forward_vector[1], forward_vector[2], cube['LocationX']/100+forward_vector[0], cube['LocationY']/100+forward_vector[1], cube['LocationZ']/100+forward_vector[2], cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], ort1, ort2))
     elif cube["Type"] == "Cube":
         obstacles.append(SafetyConstraint3D(cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 4, 16))
     elif cube["Type"] == "Sphere":
@@ -191,6 +201,8 @@ while True:
             # print("x_safe = ", x_safe, "\n")
             # print("ref safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_ref, x_ref))
             # print("alt safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_safe, x_ref))
+            for i in range(len(ecbf.safety_constraint_list)):
+                print(i, " ", ecbf.safety_constraint_list[i].safety_constraint(u_ref, x_ref))
     
     except KeyboardInterrupt: 
         path = np.array(path)
