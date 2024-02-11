@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import time
 import json
 from scipy.spatial.transform import Rotation as R
+from datetime import datetime
+from evaluation_module import EvaluationModule
 
 np.set_printoptions(precision=3, suppress=True)
 
@@ -102,6 +104,7 @@ for cube in cubes_data:
         print("wrong obstacle type", cube["Type"])
 ecbf = ExponentialControlBarrierFunction(obstacles)
 
+evaluation_module = EvaluationModule()
 
 delta_time = 0.1
 
@@ -136,9 +139,10 @@ while True:
         # v_ref[2] = np.round(user_input[1], 3) * 200
 
         ### read drone state from AirSim
-        pos = client.getMultirotorState().kinematics_estimated.position
-        vel = client.getMultirotorState().kinematics_estimated.linear_velocity
-        ori = client.getMultirotorState().kinematics_estimated.orientation
+        state = client.getMultirotorState()
+        pos = state.kinematics_estimated.position
+        vel = state.kinematics_estimated.linear_velocity
+        ori = state.kinematics_estimated.orientation
         x_ref = np.array([pos.x_val, pos.y_val, -pos.z_val, vel.x_val, vel.y_val, -vel.z_val])
         # print("x_ref = ", x_ref)
 
@@ -151,15 +155,14 @@ while True:
 
         ### use ECBF to find safe input
         u_safe, success = ecbf.control_input_optimization(x_ref, u_ref)
-        u_safe = np.round(u_safe, 3)
+        # u_safe = np.round(u_safe, 3)
         # print("u_ref = ", u_ref)
         # print("u_safe = ", u_safe)
         # x_dot = ecbf.f(x_ref) + ecbf.g(x_ref) @ u_safe
         # x_dot[0:3] = x_dot[0:3] + x_dot[3:6] * delta_time
         # x_safe = x_ref + x_dot * delta_time 
         # x_safe = np.round(x_safe, 3)
-        x_safe = x_ref + u_safe
-        path.append(x_safe[:2])
+        x_safe = x_ref + u_ref
         # print("x_safe = ", x_safe, "\n")
 
         ### update AirSim drone state
@@ -185,6 +188,26 @@ while True:
         ### falcon controller
         # gameController.set_force([u_diff_rot[1], u_diff_rot[2], -u_diff_rot[0]])
         
+        ### save data frame
+        collision = client.simGetCollisionInfo()
+        data = {
+            # "timestamp": datetime.now().timestamp(), 
+            "timestamp": state.timestamp,
+            "position": x_ref[0:3].tolist(),
+            "velocity": x_ref[3:6].tolist(),
+            "collision": {
+                "has_collided": collision.has_collided,
+                "position": [collision.position.x_val, collision.position.y_val, -collision.position.z_val],
+                "object_id": collision.object_id,
+                "object_name": collision.object_name,
+                "time_stamp": collision.time_stamp,
+                },
+            "user_input": u_ref[3:6].tolist(),
+            "safe_input": u_safe[3:6].tolist(),
+            "input_diff": u_diff_rot.tolist()
+            }
+        evaluation_module.frame_update(data)
+
         ### debug output
         count += 1
         current_time = time.time()  # Get the current time
@@ -201,21 +224,9 @@ while True:
             # print("x_safe = ", x_safe, "\n")
             # print("ref safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_ref, x_ref))
             # print("alt safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_safe, x_ref))
-            for i in range(len(ecbf.safety_constraint_list)):
-                print(i, " ", ecbf.safety_constraint_list[i].safety_constraint(u_ref, x_ref))
+            # for i in range(len(ecbf.safety_constraint_list)):
+            #     print(i, " ", ecbf.safety_constraint_list[i].safety_constraint(u_ref, x_ref))
     
-    except KeyboardInterrupt: 
-        path = np.array(path)
-        plt.scatter(path[:, 0], path[:, 1])
-        for obs in obstacles:
-            print(obs.d1, obs.d2)
-            rect = Rectangle((obs.d1-1.0, obs.d2-1.0), 2.0, 2.0, color='blue', fill=False)
-            plt.gca().add_patch(rect)
-        # circles = [Circle((10, 2), 3, color='blue', fill=False),
-        #     Circle((20, -4), 3, color='blue', fill=False),
-        #     Circle((30, 2), 2, color='blue', fill=False),
-        #     Circle((40, -1), 2, color='blue', fill=False)
-        # ]
-        # for circle in circles:
-        #     plt.gca().add_patch(circle)
-        plt.show()
+    except KeyboardInterrupt:
+        evaluation_module.export_data()
+        break
