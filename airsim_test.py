@@ -38,9 +38,9 @@ for i in range(10):
 
 ### connect to game controller or falcon controller
 ### xbox controller
-# gameController = XboxController()
+gameController = XboxController()
 ### falcon controller
-gameController = FalconSocketClient()
+# gameController = FalconSocketClient()
 if not gameController.initSuccess:
     exit(-1)
 
@@ -129,21 +129,21 @@ while True:
         # u_ref[3] = 20.0
 
         ### xbox controller
-        # v_rot = np.round(user_input['x_axis'], 3)
-        # v_ref[0] = -np.round(user_input['w_axis'], 3) * 10
-        # v_ref[1] = np.round(user_input['z_axis'], 3) * 10
-        # v_ref[2] = -np.round(user_input['y_axis'], 3) * 10
+        v_rot = np.round(user_input['x_axis'], 3)
+        v_ref[0] = -np.round(user_input['w_axis'], 3) * 10
+        v_ref[1] = np.round(user_input['z_axis'], 3) * 10
+        v_ref[2] = -np.round(user_input['y_axis'], 3) * 10
         
         ### falcon controller
-        button_val = gameController.get_button_state()
-        v_rot = 0
-        if (button_val & 2) == 2:
-            v_rot = -1.0
-        if (button_val & 8) == 8:
-            v_rot = 1.0
-        v_ref[0] = -np.round(user_input[2], 3) * 200
-        v_ref[1] = np.round(user_input[0], 3) * 200
-        v_ref[2] = np.round(user_input[1], 3) * 200
+        # button_val = gameController.get_button_state()
+        # v_rot = 0
+        # if (button_val & 2) == 2:
+        #     v_rot = -1.0
+        # if (button_val & 8) == 8:
+        #     v_rot = 1.0
+        # v_ref[0] = -np.round(user_input[2], 3) * 200
+        # v_ref[1] = np.round(user_input[0], 3) * 200
+        # v_ref[2] = np.round(user_input[1], 3) * 200
 
         ### read drone state from AirSim
         state = client.getMultirotorState()
@@ -190,10 +190,10 @@ while True:
         # time.sleep(delta_time
             
         ### apply force feedback
+        u_diff = u_safe[3:6] - u_ref[3:6]
+        u_diff_rot = rotation.inv().apply(u_diff)
         ### falcon controller
-        # u_diff = u_safe[3:6] - u_ref[3:6]
-        # u_diff_rot = rotation.inv().apply(u_diff)
-        gameController.set_force([u_diff_rot[1], u_diff_rot[2], -u_diff_rot[0]])
+        # gameController.set_force([u_diff_rot[1], u_diff_rot[2], -u_diff_rot[0]])
         ### xbox controller, tactile feedback
         if not np.allclose(u_ref, u_safe, rtol=1e-05, atol=1e-08): # input is modified
             for i in range(len(obstacles)):
