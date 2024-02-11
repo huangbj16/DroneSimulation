@@ -106,6 +106,11 @@ ecbf = ExponentialControlBarrierFunction(obstacles)
 
 evaluation_module = EvaluationModule()
 
+### set obstacle IDs
+obs_names = client.simListSceneObjects("StaticMeshActor_.*")
+for i, obs_name in enumerate(obs_names):
+    client.simSetSegmentationObjectID(obs_name, 10+i, False)
+
 delta_time = 0.1
 
 path = []
@@ -180,7 +185,7 @@ while True:
         # client.rotateByYawRateAsync(-v_rot, duration=0.1)
         # client.moveByVelocityZAsync(x_safe[3], x_safe[4], -x_safe[2], duration=1.0)
         # client.moveToPositionAsync(x_safe[0], x_safe[1], -x_safe[2], 1.0)
-        # time.sleep(delta_time)
+        # time.sleep(delta_time
             
         ### apply force feedback
         u_diff = u_safe[3:6] - u_ref[3:6]
