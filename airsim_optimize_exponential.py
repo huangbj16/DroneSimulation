@@ -54,11 +54,16 @@ class SafetyConstraint2D:
         else:
             return False
     
-    def safety_constraint(self, u, x):
-        A = self.calculate_A(x)
-        b = self.calculate_b(x)
+    def updateParams(self, x):
+        self.x = x
+        self.A = self.calculate_A(x)
+        self.b = self.calculate_b(x)
+
+    def safety_constraint(self, u):
+        # A = self.calculate_A(x)
+        # b = self.calculate_b(x)
         # print("new A b = ", A, b)
-        return np.dot(A, u) + b
+        return np.dot(self.A, u) + self.b
 
 
 class SafetyConstraint3D:
@@ -116,12 +121,17 @@ class SafetyConstraint3D:
             return True
         else:
             return False
+        
+    def updateParams(self, x):
+        self.x = x
+        self.A = self.calculate_A(x)
+        self.b = self.calculate_b(x)
     
-    def safety_constraint(self, u, x):
-        A = self.calculate_A(x)
-        b = self.calculate_b(x)
+    def safety_constraint(self, u):
+        # A = self.calculate_A(x)
+        # b = self.calculate_b(x)
         # print("new A b = ", A, b)
-        return np.dot(A, u) + b
+        return np.dot(self.A, u) + self.b
 
 
 class SafetyConstraintWall3D:
@@ -187,12 +197,17 @@ class SafetyConstraintWall3D:
             return True
         else:
             return False
+        
+    def updateParams(self, x):
+        self.x = x
+        self.A = self.calculate_A(x)
+        self.b = self.calculate_b(x)
 
-    def safety_constraint(self, u, x):
-        A = self.calculate_A(x)
-        b = self.calculate_b(x)
+    def safety_constraint(self, u):
+        # A = self.calculate_A(x)
+        # b = self.calculate_b(x)
         # print("new A b = ", A, b)
-        return np.dot(A, u) + b
+        return np.dot(self.A, u) + self.b
 
 
 
@@ -255,7 +270,8 @@ class ExponentialControlBarrierFunction:
         constraints = []
         for sc in self.safety_constraint_list:
             if sc.isInRange(x_des):
-                constraints.append({'type': 'ineq', 'fun': sc.safety_constraint, 'args': (x_des,)})
+                sc.updateParams(x_des)
+                constraints.append({'type': 'ineq', 'fun': sc.safety_constraint})
         # constraints = [{'type': 'ineq', 'fun': sc.safety_constraint, 'args': (x_des,)} for sc in self.safety_constraint_list]
         # print("# of constraint = ", len(constraints))
 
