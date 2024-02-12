@@ -15,6 +15,7 @@ class SafetyConstraint2D:
         self.k2 = 12
         self.n = n
         self.ds = ds
+        self.point_center = np.array([d1, d2])
     
     def h(self, x):
         return ((x[0]-self.d1)/self.a1)**self.n + \
@@ -45,6 +46,14 @@ class SafetyConstraint2D:
         b = self.hdd_x(x) + self.k2*self.hd(x) + self.k1*self.h(x)
         return b
     
+    def isInRange(self, x):
+        point_vector = x[0:2] - self.point_center
+        distance = np.linalg.norm(point_vector)
+        if distance < (self.a1 + self.a2)/2 + 5.0:
+            return True
+        else:
+            return False
+    
     def safety_constraint(self, u, x):
         A = self.calculate_A(x)
         b = self.calculate_b(x)
@@ -64,6 +73,7 @@ class SafetyConstraint3D:
         self.k2 = 6
         self.n = n
         self.ds = ds
+        self.point_center = np.array([d1, d2, d3])
         # print("a1, d1 = ", self.a1, self.d1)
     
     def h(self, x):
@@ -98,6 +108,14 @@ class SafetyConstraint3D:
     def calculate_b(self, x):
         b = self.hdd_x(x) + self.k2*self.hd(x) + self.k1*self.h(x)
         return b
+    
+    def isInRange(self, x):
+        point_vector = x[0:3] - self.point_center
+        distance = np.linalg.norm(point_vector)
+        if distance < (self.a1 + self.a2 + self.a3)/3 + 5.0:
+            return True
+        else:
+            return False
     
     def safety_constraint(self, u, x):
         A = self.calculate_A(x)
@@ -171,13 +189,10 @@ class SafetyConstraintWall3D:
             return False
 
     def safety_constraint(self, u, x):
-        if self.isInRange(x):
-            A = self.calculate_A(x)
-            b = self.calculate_b(x)
-            # print("new A b = ", A, b)
-            return np.dot(A, u) + b
-        else: # none of my business
-            return 1.0
+        A = self.calculate_A(x)
+        b = self.calculate_b(x)
+        # print("new A b = ", A, b)
+        return np.dot(A, u) + b
 
 
 
@@ -237,7 +252,12 @@ class ExponentialControlBarrierFunction:
         objective = lambda u: np.sum((u - u_des)**2)
         
         # Define the constraints (we need to ensure that safety_constraint(x, u) >= 0)
-        constraints = [{'type': 'ineq', 'fun': sc.safety_constraint, 'args': (x_des,)} for sc in self.safety_constraint_list]
+        constraints = []
+        for sc in self.safety_constraint_list:
+            if sc.isInRange(x_des):
+                constraints.append({'type': 'ineq', 'fun': sc.safety_constraint, 'args': (x_des,)})
+        # constraints = [{'type': 'ineq', 'fun': sc.safety_constraint, 'args': (x_des,)} for sc in self.safety_constraint_list]
+        # print("# of constraint = ", len(constraints))
 
         x0 = np.random.randn(u_des.shape[0])
         # print(x0)
