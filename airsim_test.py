@@ -161,7 +161,9 @@ while True:
         u_ref[3:6] = a_ref
 
         ### use ECBF to find safe input
+        ecbf_time = time.time()
         u_safe, success = ecbf.control_input_optimization(x_ref, u_ref)
+        ecbf_time = time.time() - ecbf_time
         # u_safe = np.round(u_safe, 3)
         # print("u_ref = ", u_ref)
         # print("u_safe = ", u_safe)
@@ -195,35 +197,35 @@ while True:
         ### falcon controller
         # gameController.set_force([u_diff_rot[1], u_diff_rot[2], -u_diff_rot[0]])
         ### xbox controller, tactile feedback
-        if not np.allclose(u_ref, u_safe, rtol=1e-05, atol=1e-08): # input is modified
-            for i in range(len(obstacles)):
-                obs = obstacles[i]
-                if obs.safety_constraint(u_ref, x_ref) < 0: # obstacle affected
-                    if type(obs) == SafetyConstraint3D:
-                        relative_direction = np.array([obs.d1, obs.d2, obs.d3]) - x_ref[0:3]
-                    elif type(obs) == SafetyConstraint2D:
-                        relative_direction = np.array([obs.d1, obs.d2, 0]) - np.array([x_ref[0], x_ref[1], 0])
-                    elif type(obs) == SafetyConstraintWall3D:
-                        relative_direction = np.array([-obs.a1, -obs.a2, -obs.a3])
-                    else:
-                        exit(-1)
-                    # print(i, type(obs), relative_direction)
-                    relative_direction = rotation.inv().apply(relative_direction) # rotate to body frame
-                    relative_direction /= np.linalg.norm(relative_direction)
-                    angle_distances = np.dot(tactile_module.motor_directions, relative_direction)
-                    # nearest_index = np.argmax(angle_distances)
-                    nearest_indices = np.where(angle_distances == np.max(angle_distances))[0]
-                    # print(nearest_indices)
-                    for nearest_index in nearest_indices:
-                        command = {
-                            'addr':tactile_module.motor_ids[nearest_index], 
-                            'mode':1,
-                            'duty':15, # default
-                            'freq':2, # default
-                            'wave':0, # default
-                        }
-                        tactile_module.set_vibration(command)
-            tactile_module.flush_update()
+        # if not np.allclose(u_ref, u_safe, rtol=1e-05, atol=1e-08): # input is modified
+        #     for i in range(len(obstacles)):
+        #         obs = obstacles[i]
+        #         if obs.safety_constraint(u_ref, x_ref) < 0: # obstacle affected
+        #             if type(obs) == SafetyConstraint3D:
+        #                 relative_direction = np.array([obs.d1, obs.d2, obs.d3]) - x_ref[0:3]
+        #             elif type(obs) == SafetyConstraint2D:
+        #                 relative_direction = np.array([obs.d1, obs.d2, 0]) - np.array([x_ref[0], x_ref[1], 0])
+        #             elif type(obs) == SafetyConstraintWall3D:
+        #                 relative_direction = np.array([-obs.a1, -obs.a2, -obs.a3])
+        #             else:
+        #                 exit(-1)
+        #             # print(i, type(obs), relative_direction)
+        #             relative_direction = rotation.inv().apply(relative_direction) # rotate to body frame
+        #             relative_direction /= np.linalg.norm(relative_direction)
+        #             angle_distances = np.dot(tactile_module.motor_directions, relative_direction)
+        #             # nearest_index = np.argmax(angle_distances)
+        #             nearest_indices = np.where(angle_distances == np.max(angle_distances))[0]
+        #             # print(nearest_indices)
+        #             for nearest_index in nearest_indices:
+        #                 command = {
+        #                     'addr':tactile_module.motor_ids[nearest_index], 
+        #                     'mode':1,
+        #                     'duty':15, # default
+        #                     'freq':2, # default
+        #                     'wave':0, # default
+        #                 }
+        #                 tactile_module.set_vibration(command)
+        #     tactile_module.flush_update()
                         
         
         ### save data frame
@@ -250,7 +252,7 @@ while True:
         count += 1
         current_time = time.time()  # Get the current time
         if current_time - start_time > 1.0: 
-            # print("FPS = ", count)
+            print("FPS = ", count, ", ECBF = ", ecbf_time)
             # print("ori = ", ori)
             count = 0
             start_time = current_time 
@@ -266,5 +268,5 @@ while True:
             #     print(i, " ", ecbf.safety_constraint_list[i].safety_constraint(u_ref, x_ref))
     
     except KeyboardInterrupt:
-        evaluation_module.export_data()
+        # evaluation_module.export_data()
         break
