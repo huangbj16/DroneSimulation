@@ -124,6 +124,8 @@ path = []
 count = 0
 start_time = time.time()
 
+sc_values = [[] for _ in range(len(obstacles))]
+
 while True:
     try:
         # read user input from controller
@@ -211,15 +213,21 @@ while True:
                 for i in range(len(obstacles)):
                     obs = obstacles[i]
                     if obs.isInRange(x_ref):
-                        if obs.safety_constraint(u_ref) < 0: # obstacle affected
+                        sc_val = obs.safety_constraint(u_ref)
+                        if sc_val < 0: # obstacle affected
                             if type(obs) == SafetyConstraint3D:
                                 relative_direction = np.array([obs.d1, obs.d2, obs.d3]) - x_ref[0:3]
+                                duty = np.power(np.abs(sc_val), 1/obs.n)
                             elif type(obs) == SafetyConstraint2D:
                                 relative_direction = np.array([obs.d1, obs.d2, 0]) - np.array([x_ref[0], x_ref[1], 0])
+                                duty = np.power(np.abs(sc_val), 1/obs.n)
                             elif type(obs) == SafetyConstraintWall3D:
                                 relative_direction = np.array([-obs.a1, -obs.a2, -obs.a3])
+                                duty = np.abs(sc_val)
                             else:
                                 exit(-1)
+                            sc_values[i].append(duty)
+                            duty = int(np.clip(duty, 0, 15))
                             # print(i, type(obs), relative_direction)
                             relative_direction = rotation.inv().apply(relative_direction) # rotate to body frame
                             relative_direction /= np.linalg.norm(relative_direction)
@@ -228,14 +236,7 @@ while True:
                             nearest_indices = np.where(angle_distances == np.max(angle_distances))[0]
                             # print(nearest_indices)
                             for nearest_index in nearest_indices:
-                                command = {
-                                    'addr':tactile_module.motor_ids[nearest_index], 
-                                    'mode':1,
-                                    'duty':15, # default
-                                    'freq':2, # default
-                                    'wave':0, # default
-                                }
-                                tactile_module.set_vibration(command)
+                                tactile_module.set_vibration(tactile_module.motor_ids[nearest_index], duty)
                 tactile_module.flush_update()
                         
         
@@ -280,4 +281,7 @@ while True:
     
     except KeyboardInterrupt:
         # evaluation_module.export_data()
+        for i, sc_value in enumerate(sc_values):
+            if len(sc_value) != 0:
+                print(i, type(obstacles[i]), np.min(sc_value), np.max(sc_value), np.mean(sc_value), np.std(sc_value))
         break

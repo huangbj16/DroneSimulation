@@ -12,8 +12,8 @@ class TactileFeedbackModule:
         self.category_num = 46
         self.buck_ids = [0, 30, 120, 150]
         self.motor_ids = [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162]
-        self.last_vibs = [False for _ in range(self.category_num)]
-        self.curret_vibs = [False for _ in range(self.category_num)]
+        self.last_vibs = [-1 for _ in range(self.category_num)]
+        self.curret_vibs = [-1 for _ in range(self.category_num)]
         self.motor_directions = []
         self.read_motor_file()
         asyncio.run(self.bluetooth_init())
@@ -58,10 +58,9 @@ class TactileFeedbackModule:
                         await self.client.disconnect()
 
     # command in json format
-    def set_vibration(self, command):
+    def set_vibration(self, addr, duty):
         # mark the motor as vibrating
-        self.curret_vibs[self.motor_ids.index(command["addr"])] = True
-        asyncio.run(self.set_motor(command))
+        self.curret_vibs[self.motor_ids.index(addr)] = duty
 
     async def set_motor(self, command):
         output = bytearray(json.dumps(command), 'utf-8')
@@ -70,18 +69,27 @@ class TactileFeedbackModule:
 
     def flush_update(self):
         for i in range(self.category_num):
-            if self.last_vibs[i] == True and self.curret_vibs[i] == False: # turn off
-                command = {
-                    'addr':self.motor_ids[i], 
-                    'mode':0,
-                    'duty':15, # default
-                    'freq':2, # default
-                    'wave':0, # default
-                }
+            if self.last_vibs[i] != self.curret_vibs[i]: # need update
+                if self.curret_vibs[i] == -1:
+                    command = {
+                        'addr':self.motor_ids[i], 
+                        'mode':0,
+                        'duty':15, # default
+                        'freq':2, # default
+                        'wave':0, # default
+                    }
+                else:
+                    command = {
+                        'addr':self.motor_ids[i], 
+                        'mode':1,
+                        'duty':self.curret_vibs[i], # default
+                        'freq':2, # default
+                        'wave':0, # default
+                    }
                 asyncio.run(self.set_motor(command))
         # update the vibs
         self.last_vibs = self.curret_vibs
-        self.curret_vibs = [False for _ in range(self.category_num)]    
+        self.curret_vibs = [-1 for _ in range(self.category_num)]    
 
 
 if __name__ == "__main__":
