@@ -266,48 +266,51 @@ class ExponentialControlBarrierFunction:
     def control_input_optimization(self, x_des, u_des):
         # print("u shape = ", u_des.shape)
         ### scipy minimize
-        # # Define the objective function to be minimized (e.g., a simple quadratic cost on u)
-        # objective = lambda u: np.sum((u - u_des)**2)
+        # Define the objective function to be minimized (e.g., a simple quadratic cost on u)
+        objective = lambda u: np.sum((u - u_des)**2)
         
-        # # Define the constraints (we need to ensure that safety_constraint(x, u) >= 0)
-        # # constraints = []
-        # # for sc in self.safety_constraint_list:
-        # #     if sc.isInRange(x_des):
-        # #         sc.updateParams(x_des)
-        # #         constraints.append({'type': 'ineq', 'fun': sc.safety_constraint})
-        # # constraints = [{'type': 'ineq', 'fun': sc.safety_constraint, 'args': (x_des,)} for sc in self.safety_constraint_list]
-        # # print("# of constraint = ", len(constraints))
-
-        # x0 = np.random.randn(u_des.shape[0])
-        # # print(x0)
-        
-        # # Solve the optimization problem
-        # u_opt = minimize(objective, x0, method="SLSQP", constraints=constraints, tol=1e-6, options={'maxiter': 1000})
-
-        # # print("ref safety = ", self.safety_constraint_list[0].safety_constraint(u_des, x_des))
-        # # print("alt safety = ", self.safety_constraint_list[0].safety_constraint(u_opt.x, x_des))
-        # # print(u_opt)
-        # # Return the optimal control input
-        # return u_opt.x, u_opt.success
-    
-        ### QP Solver
-        solvers.options['show_progress'] = False
-        Q = matrix(np.identity(u_des.shape[0]), tc='d')
-        p = matrix(-u_des.T, tc='d')
-        A_array = []
-        b_array = []
+        # Define the constraints (we need to ensure that safety_constraint(x, u) >= 0)
+        constraints = []
         for sc in self.safety_constraint_list:
             if sc.isInRange(x_des):
                 sc.updateParams(x_des)
-                A_array.append(sc.A)
-                b_array.append(sc.b)
-        G = matrix(-np.stack(A_array, axis=0), tc='d')
-        h = matrix(np.stack(b_array, axis=0), tc='d')
-        # print("G h shape = ", G.size, h.size)
-        sol = solvers.qp(Q, p, G, h)
-        res = np.array(sol['x']).reshape(u_des.shape[0])
-        # print(res.shape)
-        return res, True
+                constraints.append({'type': 'ineq', 'fun': sc.safety_constraint})
+        # constraints = [{'type': 'ineq', 'fun': sc.safety_constraint, 'args': (x_des,)} for sc in self.safety_constraint_list]
+        # print("# of constraint = ", len(constraints))
+
+        x0 = np.random.randn(u_des.shape[0])
+        # print(x0)
+        
+        # Solve the optimization problem
+        u_opt = minimize(objective, x0, method="SLSQP", constraints=constraints, tol=1e-6, options={'maxiter': 1000})
+
+        # print("ref safety = ", self.safety_constraint_list[0].safety_constraint(u_des, x_des))
+        # print("alt safety = ", self.safety_constraint_list[0].safety_constraint(u_opt.x, x_des))
+        # print(u_opt)
+        # Return the optimal control input
+        return u_opt.x, u_opt.success
+    
+        ### QP Solver
+        # solvers.options['show_progress'] = False
+        # Q = matrix(np.identity(u_des.shape[0]), tc='d')
+        # p = matrix(-u_des.T, tc='d')
+        # A_array = []
+        # b_array = []
+        # for sc in self.safety_constraint_list:
+        #     if sc.isInRange(x_des):
+        #         sc.updateParams(x_des)
+        #         A_array.append(sc.A)
+        #         b_array.append(sc.b)
+        # if len(A_array) == 0:
+        #     # no obstacle in the range
+        #     return u_des, True
+        # G = matrix(-np.stack(A_array, axis=0), tc='d')
+        # h = matrix(np.stack(b_array, axis=0), tc='d')
+        # # print("G h shape = ", G.size, h.size)
+        # sol = solvers.qp(Q, p, G, h)
+        # res = np.array(sol['x']).reshape(u_des.shape[0])
+        # # print(res.shape)
+        # return res, True
 
 
 

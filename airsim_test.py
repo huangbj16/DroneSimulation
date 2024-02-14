@@ -15,7 +15,10 @@ from tactile_feedback_module import TactileFeedbackModule
 
 np.set_printoptions(precision=3, suppress=True)
 
-tactile_module = TactileFeedbackModule()
+control_mode = "body"
+
+if control_mode == "body":
+    tactile_module = TactileFeedbackModule()
 
 # connect to the AirSim simulator
 client = airsim.MultirotorClient()
@@ -37,10 +40,12 @@ for i in range(10):
 # print(np.mean(test_array), np.std(test_array))
 
 ### connect to game controller or falcon controller
-### xbox controller
-gameController = XboxController()
-### falcon controller
-# gameController = FalconSocketClient()
+if control_mode == "body":
+    ### xbox controller
+    gameController = XboxController()
+elif control_mode == "hand":
+    ## falcon controller
+    gameController = FalconSocketClient()
 if not gameController.initSuccess:
     exit(-1)
 
@@ -59,9 +64,9 @@ def read_cubes_file(file_path):
 cubes_data = read_cubes_file(filepath)
 
 def get_forward_vector(roll, pitch, yaw):
-    forward = np.array([0, 0, 1], dtype=np.float32)
-    ort1 = np.array([1, 0, 0], dtype=np.float32)
-    ort2 = np.array([0, 1, 0], dtype=np.float32)
+    forward = np.array([0, 0, 1], dtype=np.float64)
+    ort1 = np.array([1, 0, 0], dtype=np.float64)
+    ort2 = np.array([0, 1, 0], dtype=np.float64)
     if roll != 0:
         roll_radians = np.radians(roll)
         rotation_roll = np.array([[1, 0, 0],
@@ -123,27 +128,29 @@ while True:
     try:
         # read user input from controller
         user_input = gameController.get_controller_input()
+        # user_input = {"x_axis": 0.0, "y_axis": 0.0, "z_axis": 0.0, "w_axis": -0.5}
         # print(user_input)
-        v_ref = np.zeros(3, dtype=np.float32)
-        u_ref = np.zeros(6, dtype=np.float32)
+        v_ref = np.zeros(3, dtype=np.float64)
+        u_ref = np.zeros(6, dtype=np.float64)
         # u_ref[3] = 20.0
 
-        ### xbox controller
-        v_rot = np.round(user_input['x_axis'], 3)
-        v_ref[0] = -np.round(user_input['w_axis'], 3) * 10
-        v_ref[1] = np.round(user_input['z_axis'], 3) * 10
-        v_ref[2] = -np.round(user_input['y_axis'], 3) * 10
-        
-        ### falcon controller
-        # button_val = gameController.get_button_state()
-        # v_rot = 0
-        # if (button_val & 2) == 2:
-        #     v_rot = -1.0
-        # if (button_val & 8) == 8:
-        #     v_rot = 1.0
-        # v_ref[0] = -np.round(user_input[2], 3) * 200
-        # v_ref[1] = np.round(user_input[0], 3) * 200
-        # v_ref[2] = np.round(user_input[1], 3) * 200
+        if control_mode == "body":
+            ### xbox controller
+            v_rot = np.round(user_input['x_axis'], 3)
+            v_ref[0] = -np.round(user_input['w_axis'], 3) * 10
+            v_ref[1] = np.round(user_input['z_axis'], 3) * 10
+            v_ref[2] = -np.round(user_input['y_axis'], 3) * 10
+        elif control_mode == "hand":
+            ### falcon controller
+            button_val = gameController.get_button_state()
+            v_rot = 0
+            if (button_val & 2) == 2:
+                v_rot = -1.0
+            if (button_val & 8) == 8:
+                v_rot = 1.0
+            v_ref[0] = -np.round(user_input[2], 3) * 200
+            v_ref[1] = np.round(user_input[0], 3) * 200
+            v_ref[2] = np.round(user_input[1], 3) * 200
 
         ### read drone state from AirSim
         state = client.getMultirotorState()
@@ -172,6 +179,7 @@ while True:
         # x_safe = x_ref + x_dot * delta_time 
         # x_safe = np.round(x_safe, 3)
         x_safe = x_ref + u_safe
+        # print(x_safe.shape, x_ref.shape, u_safe.shape)
         # print("x_safe = ", x_safe, "\n")
 
         ### update AirSim drone state
@@ -194,38 +202,41 @@ while True:
         ### apply force feedback
         u_diff = u_safe[3:6] - u_ref[3:6]
         u_diff_rot = rotation.inv().apply(u_diff)
-        ### falcon controller
-        # gameController.set_force([u_diff_rot[1], u_diff_rot[2], -u_diff_rot[0]])
-        ### xbox controller, tactile feedback
-        # if not np.allclose(u_ref, u_safe, rtol=1e-05, atol=1e-08): # input is modified
-        #     for i in range(len(obstacles)):
-        #         obs = obstacles[i]
-        #         if obs.safety_constraint(u_ref, x_ref) < 0: # obstacle affected
-        #             if type(obs) == SafetyConstraint3D:
-        #                 relative_direction = np.array([obs.d1, obs.d2, obs.d3]) - x_ref[0:3]
-        #             elif type(obs) == SafetyConstraint2D:
-        #                 relative_direction = np.array([obs.d1, obs.d2, 0]) - np.array([x_ref[0], x_ref[1], 0])
-        #             elif type(obs) == SafetyConstraintWall3D:
-        #                 relative_direction = np.array([-obs.a1, -obs.a2, -obs.a3])
-        #             else:
-        #                 exit(-1)
-        #             # print(i, type(obs), relative_direction)
-        #             relative_direction = rotation.inv().apply(relative_direction) # rotate to body frame
-        #             relative_direction /= np.linalg.norm(relative_direction)
-        #             angle_distances = np.dot(tactile_module.motor_directions, relative_direction)
-        #             # nearest_index = np.argmax(angle_distances)
-        #             nearest_indices = np.where(angle_distances == np.max(angle_distances))[0]
-        #             # print(nearest_indices)
-        #             for nearest_index in nearest_indices:
-        #                 command = {
-        #                     'addr':tactile_module.motor_ids[nearest_index], 
-        #                     'mode':1,
-        #                     'duty':15, # default
-        #                     'freq':2, # default
-        #                     'wave':0, # default
-        #                 }
-        #                 tactile_module.set_vibration(command)
-        #     tactile_module.flush_update()
+        if control_mode == "hand":
+            ### falcon controller
+            gameController.set_force([u_diff_rot[1], u_diff_rot[2], -u_diff_rot[0]])
+        elif control_mode == "body":
+            ### xbox controller, tactile feedback
+            if not np.allclose(u_ref, u_safe, rtol=1e-05, atol=1e-08): # input is modified
+                for i in range(len(obstacles)):
+                    obs = obstacles[i]
+                    if obs.isInRange(x_ref):
+                        if obs.safety_constraint(u_ref) < 0: # obstacle affected
+                            if type(obs) == SafetyConstraint3D:
+                                relative_direction = np.array([obs.d1, obs.d2, obs.d3]) - x_ref[0:3]
+                            elif type(obs) == SafetyConstraint2D:
+                                relative_direction = np.array([obs.d1, obs.d2, 0]) - np.array([x_ref[0], x_ref[1], 0])
+                            elif type(obs) == SafetyConstraintWall3D:
+                                relative_direction = np.array([-obs.a1, -obs.a2, -obs.a3])
+                            else:
+                                exit(-1)
+                            # print(i, type(obs), relative_direction)
+                            relative_direction = rotation.inv().apply(relative_direction) # rotate to body frame
+                            relative_direction /= np.linalg.norm(relative_direction)
+                            angle_distances = np.dot(tactile_module.motor_directions, relative_direction)
+                            # nearest_index = np.argmax(angle_distances)
+                            nearest_indices = np.where(angle_distances == np.max(angle_distances))[0]
+                            # print(nearest_indices)
+                            for nearest_index in nearest_indices:
+                                command = {
+                                    'addr':tactile_module.motor_ids[nearest_index], 
+                                    'mode':1,
+                                    'duty':15, # default
+                                    'freq':2, # default
+                                    'wave':0, # default
+                                }
+                                tactile_module.set_vibration(command)
+                tactile_module.flush_update()
                         
         
         ### save data frame
