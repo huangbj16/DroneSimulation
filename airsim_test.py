@@ -12,8 +12,9 @@ from scipy.spatial.transform import Rotation as R
 from datetime import datetime
 from evaluation_module import EvaluationModule
 from tactile_feedback_module import TactileFeedbackModule
+import asyncio
 
-np.set_printoptions(precision=3, suppress=True)
+# np.set_printoptions(precision=3, suppress=True)
 
 control_mode = "body"
 
@@ -52,7 +53,7 @@ if not gameController.initSuccess:
 
 # load obstacle settings
 
-filepath = 'D:/2023Fall/DroneSimulation/TestScene/WindowsNoEditor/Blocks/Content/Settings/cubes.txt'
+filepath = 'D:/2023Fall/DroneSimulation/TestSceneBright/WindowsNoEditor/Blocks/Content/Settings/cubes.txt'
 
 def read_cubes_file(file_path):
     cubes = []
@@ -102,11 +103,11 @@ for cube in cubes_data:
         print("ort2 = ", ort2)
         obstacles.append(SafetyConstraintWall3D(forward_vector[0], forward_vector[1], forward_vector[2], cube['LocationX']/100+forward_vector[0], cube['LocationY']/100+forward_vector[1], cube['LocationZ']/100+forward_vector[2], cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], ort1, ort2))
     elif cube["Type"] == "Cube":
-        obstacles.append(SafetyConstraint3D(cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 4, 16))
+        obstacles.append(SafetyConstraint3D(cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 4, 1))
     elif cube["Type"] == "Sphere":
-        obstacles.append(SafetyConstraint3D(cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 2, 4))
+        obstacles.append(SafetyConstraint3D(cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 2, 1))
     elif cube["Type"] == "Cylinder":
-        obstacles.append(SafetyConstraint2D(cube['ScaleX'], cube['ScaleY'], cube['LocationX']/100, cube['LocationY']/100, 2, 4))
+        obstacles.append(SafetyConstraint2D(cube['ScaleX'], cube['ScaleY'], cube['LocationX']/100, cube['LocationY']/100, 2, 1))
     else:
         print("wrong obstacle type", cube["Type"])
 ecbf = ExponentialControlBarrierFunction(obstacles)
@@ -155,11 +156,14 @@ while True:
             v_ref[2] = np.round(user_input[1], 3) * 200
 
         ### read drone state from AirSim
+        api_time = time.time()
         state = client.getMultirotorState()
+        collision = client.simGetCollisionInfo()
         pos = state.kinematics_estimated.position
         vel = state.kinematics_estimated.linear_velocity
         ori = state.kinematics_estimated.orientation
         x_ref = np.array([pos.x_val, pos.y_val, -pos.z_val, vel.x_val, vel.y_val, -vel.z_val])
+        api_time = time.time() - api_time
         # print("x_ref = ", x_ref)
 
         ### convert the user input to drone orientation
@@ -167,11 +171,12 @@ while True:
         v_ref_rotated = rotation.apply(v_ref)
         # calculate diff between v_ref and v_cur, convert into acc command
         a_ref = v_ref_rotated - x_ref[3:6]
-        u_ref[3:6] = a_ref
+        u_ref[3:6] = np.round(a_ref, 3)
 
         ### use ECBF to find safe input
         ecbf_time = time.time()
         u_safe, success = ecbf.control_input_optimization(x_ref, u_ref)
+        u_safe = np.round(u_safe, 3)
         ecbf_time = time.time() - ecbf_time
         # u_safe = np.round(u_safe, 3)
         # print("u_ref = ", u_ref)
@@ -200,7 +205,8 @@ while True:
         # client.moveByVelocityZAsync(x_safe[3], x_safe[4], -x_safe[2], duration=1.0)
         # client.moveToPositionAsync(x_safe[0], x_safe[1], -x_safe[2], 1.0)
         # time.sleep(delta_time
-            
+        
+        ble_time = time.time()
         ### apply force feedback
         u_diff = u_safe[3:6] - u_ref[3:6]
         u_diff_rot = rotation.inv().apply(u_diff)
@@ -210,6 +216,7 @@ while True:
         elif control_mode == "body":
             ### xbox controller, tactile feedback
             if not np.allclose(u_ref, u_safe, rtol=1e-05, atol=1e-08): # input is modified
+                # print(u_ref, u_safe)
                 for i in range(len(obstacles)):
                     obs = obstacles[i]
                     if obs.isInRange(x_ref):
@@ -237,11 +244,11 @@ while True:
                             # print(nearest_indices)
                             for nearest_index in nearest_indices:
                                 tactile_module.set_vibration(tactile_module.motor_ids[nearest_index], duty)
-                tactile_module.flush_update()
+            tactile_module.flush_update()
+        ble_time = time.time() - ble_time
                         
         
         ### save data frame
-        collision = client.simGetCollisionInfo()
         data = {
             # "timestamp": datetime.now().timestamp(), 
             "timestamp": state.timestamp,
@@ -264,7 +271,7 @@ while True:
         count += 1
         current_time = time.time()  # Get the current time
         if current_time - start_time > 1.0: 
-            print("FPS = ", count, ", ECBF = ", ecbf_time)
+            print("FPS = ", count, ", api = ", np.round(api_time, 4), ", ECBF = ", np.round(ecbf_time, 4), ", ble = ", np.round(ble_time, 4))
             # print("ori = ", ori)
             count = 0
             start_time = current_time 
@@ -278,10 +285,12 @@ while True:
             # print("alt safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_safe, x_ref))
             # for i in range(len(ecbf.safety_constraint_list)):
             #     print(i, " ", ecbf.safety_constraint_list[i].safety_constraint(u_ref, x_ref))
+
+        time.sleep(0.0005)
     
     except KeyboardInterrupt:
         # evaluation_module.export_data()
-        for i, sc_value in enumerate(sc_values):
-            if len(sc_value) != 0:
-                print(i, type(obstacles[i]), np.min(sc_value), np.max(sc_value), np.mean(sc_value), np.std(sc_value))
+        # for i, sc_value in enumerate(sc_values):
+        #     if len(sc_value) != 0:
+        #         print(i, type(obstacles[i]), np.min(sc_value), np.max(sc_value), np.mean(sc_value), np.std(sc_value))
         break
