@@ -2,6 +2,8 @@ import asyncio
 from bleak import BleakScanner, BleakClient
 import json
 import numpy as np
+import threading
+import time
 
 MOTOR_UUID = 'f22535de-5375-44bd-8ca9-d0ea9ff9e410'
 filename = "ActuatorDirections_norm.txt"
@@ -17,6 +19,9 @@ class TactileFeedbackModule:
         self.motor_directions = []
         self.read_motor_file()
         asyncio.run(self.bluetooth_init())
+        # Initialize Bluetooth in a separate thread
+        # self.bluetooth_thread = threading.Thread(target=self.run_bluetooth_in_thread, daemon=True)
+        # self.bluetooth_thread.start()
 
     def read_motor_file(self):
         ### because the 3D positions are marked in Unity, need to convert to Unreal.
@@ -28,6 +33,14 @@ class TactileFeedbackModule:
                 self.motor_directions.append([direction[2], direction[0], direction[1]])
         self.motor_directions = np.array(self.motor_directions)
         print("motor directinos = ", self.motor_directions)
+
+    # def run_bluetooth_in_thread(self):
+    #     # Create a new event loop for the thread
+    #     loop = asyncio.new_event_loop()
+    #     asyncio.set_event_loop(loop)
+
+    #     # Run the asynchronous Bluetooth init function in the new loop
+    #     loop.run_until_complete(self.bluetooth_init())
 
     async def bluetooth_init(self):
         devices = await BleakScanner.discover()
@@ -65,19 +78,25 @@ class TactileFeedbackModule:
     async def set_motor(self, command):
         output = bytearray(json.dumps(command), 'utf-8')
         # print(output)
+        # start = time.time()
         await self.client.write_gatt_char(MOTOR_UUID,  output)
+        # print(time.time()-start)
 
     def flush_update(self):
+        count = 0
         for i in range(self.category_num):
             if self.last_vibs[i] != self.curret_vibs[i]: # need update
+                count += 1
                 if self.curret_vibs[i] == -1:
                     command = {
                         'addr':self.motor_ids[i], 
                         'mode':0,
-                        'duty':15, # default
+                        'duty':0, # default
                         'freq':2, # default
                         'wave':0, # default
                     }
+                    asyncio.run(self.set_motor(command))
+                    asyncio.run(self.set_motor(command))
                 else:
                     command = {
                         'addr':self.motor_ids[i], 
@@ -86,11 +105,16 @@ class TactileFeedbackModule:
                         'freq':2, # default
                         'wave':0, # default
                     }
-                asyncio.run(self.set_motor(command))
+                    asyncio.run(self.set_motor(command))
         # update the vibs
         self.last_vibs = self.curret_vibs
         self.curret_vibs = [-1 for _ in range(self.category_num)]    
+        # print("flush count = ", count)
 
 
 if __name__ == "__main__":
     tactile_module = TactileFeedbackModule()
+    for i in range(5, 10):
+        for j in range(1, 11):
+            tactile_module.set_vibration(j, i)
+        tactile_module.flush_update()
