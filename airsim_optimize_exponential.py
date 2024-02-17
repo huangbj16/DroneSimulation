@@ -13,7 +13,7 @@ class SafetyConstraint2D:
         self.d1 = d1
         self.d2 = d2
         self.k1 = 6
-        self.k2 = 12
+        self.k2 = 6
         self.n = n
         self.ds = ds
         self.point_center = np.array([d1, d2])

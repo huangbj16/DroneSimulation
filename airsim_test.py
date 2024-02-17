@@ -14,7 +14,7 @@ from evaluation_module import EvaluationModule
 from tactile_feedback_module import TactileFeedbackModule
 import asyncio
 
-# np.set_printoptions(precision=3, suppress=True)
+np.set_printoptions(precision=3, suppress=True)
 
 control_mode = "body"
 
@@ -53,7 +53,7 @@ if not gameController.initSuccess:
 
 # load obstacle settings
 
-filepath = 'D:/2023Fall/DroneSimulation/TestSceneBright/WindowsNoEditor/Blocks/Content/Settings/cubes.txt'
+filepath = 'D:/2023Fall/DroneSimulation/TestScene/WindowsNoEditor/Blocks/Content/Settings/cubes.txt'
 
 def read_cubes_file(file_path):
     cubes = []
@@ -103,11 +103,11 @@ for cube in cubes_data:
         print("ort2 = ", ort2)
         obstacles.append(SafetyConstraintWall3D(forward_vector[0], forward_vector[1], forward_vector[2], cube['LocationX']/100+forward_vector[0], cube['LocationY']/100+forward_vector[1], cube['LocationZ']/100+forward_vector[2], cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], ort1, ort2))
     elif cube["Type"] == "Cube":
-        obstacles.append(SafetyConstraint3D(cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 4, 1))
+        obstacles.append(SafetyConstraint3D(cube['ScaleX']+0.717, cube['ScaleY']+0.717, cube['ScaleZ']+0.717, cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 4, 1))
     elif cube["Type"] == "Sphere":
-        obstacles.append(SafetyConstraint3D(cube['ScaleX'], cube['ScaleY'], cube['ScaleZ'], cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 2, 1))
+        obstacles.append(SafetyConstraint3D(cube['ScaleX']+0.717, cube['ScaleY']+0.717, cube['ScaleZ']+0.717, cube['LocationX']/100, cube['LocationY']/100, cube['LocationZ']/100, 2, 1))
     elif cube["Type"] == "Cylinder":
-        obstacles.append(SafetyConstraint2D(cube['ScaleX'], cube['ScaleY'], cube['LocationX']/100, cube['LocationY']/100, 2, 1))
+        obstacles.append(SafetyConstraint2D(cube['ScaleX']+0.717, cube['ScaleY']+0.717, cube['LocationX']/100, cube['LocationY']/100, 2, 1))
     else:
         print("wrong obstacle type", cube["Type"])
 ecbf = ExponentialControlBarrierFunction(obstacles)
@@ -129,6 +129,7 @@ sc_values = [[] for _ in range(len(obstacles))]
 
 while True:
     try:
+        frame_start_time = time.time()
         # read user input from controller
         user_input = gameController.get_controller_input()
         # user_input = {"x_axis": 0.0, "y_axis": 0.0, "z_axis": 0.0, "w_axis": -0.5}
@@ -140,9 +141,9 @@ while True:
         if control_mode == "body":
             ### xbox controller
             v_rot = np.round(user_input['x_axis'], 3)
-            v_ref[0] = -np.round(user_input['w_axis'], 3) * 10
-            v_ref[1] = np.round(user_input['z_axis'], 3) * 10
-            v_ref[2] = -np.round(user_input['y_axis'], 3) * 10
+            v_ref[0] = -np.round(user_input['w_axis'], 3) * 5
+            v_ref[1] = np.round(user_input['z_axis'], 3) * 5
+            v_ref[2] = -np.round(user_input['y_axis'], 3) * 5
         elif control_mode == "hand":
             ### falcon controller
             button_val = gameController.get_button_state()
@@ -151,9 +152,9 @@ while True:
                 v_rot = -1.0
             if (button_val & 8) == 8:
                 v_rot = 1.0
-            v_ref[0] = -np.round(user_input[2], 3) * 200
-            v_ref[1] = np.round(user_input[0], 3) * 200
-            v_ref[2] = np.round(user_input[1], 3) * 200
+            v_ref[0] = -np.round(user_input[2], 3) * 100
+            v_ref[1] = np.round(user_input[0], 3) * 100
+            v_ref[2] = np.round(user_input[1], 3) * 100
 
         ### read drone state from AirSim
         api_time = time.time()
@@ -212,7 +213,8 @@ while True:
         u_diff_rot = rotation.inv().apply(u_diff)
         if control_mode == "hand":
             ### falcon controller
-            gameController.set_force([u_diff_rot[1], u_diff_rot[2], -u_diff_rot[0]])
+            K_force = 1.0
+            gameController.set_force([u_diff_rot[1] * K_force, u_diff_rot[2] * K_force, -u_diff_rot[0] * K_force])
         elif control_mode == "body":
             ### xbox controller, tactile feedback
             if not np.allclose(u_ref, u_safe, rtol=1e-05, atol=1e-08): # input is modified
@@ -243,7 +245,7 @@ while True:
                             nearest_indices = np.where(angle_distances == np.max(angle_distances))[0]
                             # print(nearest_indices)
                             for nearest_index in nearest_indices:
-                                tactile_module.set_vibration(tactile_module.motor_ids[nearest_index], duty)
+                                tactile_module.set_vibration(tactile_module.motor_ids[nearest_index], 15)
             tactile_module.flush_update()
         ble_time = time.time() - ble_time
                         
@@ -275,21 +277,23 @@ while True:
             # print("ori = ", ori)
             count = 0
             start_time = current_time 
-            # print("x_ref = ", x_ref)
-            # print("v_ref = ", v_ref)
-            # print("v_rot = ", v_rot)
-            # print("u_ref = ", u_ref)
-            # print("u_safe = ", u_safe)
+            print("x_ref = ", x_ref)
+            print("v_ref = ", v_ref)
+            print("v_rot = ", v_rot)
+            print("success = ", success)
+            print("u_ref = ", u_ref)
+            print("u_safe = ", u_safe)
             # print("x_safe = ", x_safe, "\n")
             # print("ref safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_ref, x_ref))
             # print("alt safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_safe, x_ref))
             # for i in range(len(ecbf.safety_constraint_list)):
             #     print(i, " ", ecbf.safety_constraint_list[i].safety_constraint(u_ref, x_ref))
 
-        time.sleep(0.0005)
+        while time.time() < frame_start_time + 0.01:
+            continue
     
     except KeyboardInterrupt:
-        # evaluation_module.export_data()
+        evaluation_module.export_data()
         # for i, sc_value in enumerate(sc_values):
         #     if len(sc_value) != 0:
         #         print(i, type(obstacles[i]), np.min(sc_value), np.max(sc_value), np.mean(sc_value), np.std(sc_value))

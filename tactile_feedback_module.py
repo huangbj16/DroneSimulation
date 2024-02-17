@@ -8,6 +8,13 @@ import time
 MOTOR_UUID = 'f22535de-5375-44bd-8ca9-d0ea9ff9e410'
 filename = "ActuatorDirections_norm.txt"
 
+def find_three_largest_indices(lst):
+    # Use enumeration to keep track of indices and sort based on values
+    sorted_indices = sorted(enumerate(lst), key=lambda x: x[1], reverse=True)
+    # Extract the indices of the three largest numbers
+    indices_of_largest = [index for index, value in sorted_indices[:2]]
+    return indices_of_largest
+
 class TactileFeedbackModule:
 
     def __init__(self) -> None:
@@ -77,14 +84,18 @@ class TactileFeedbackModule:
 
     async def set_motor(self, command):
         output = bytearray(json.dumps(command), 'utf-8')
-        # print(output)
+        print(output)
         # start = time.time()
         await self.client.write_gatt_char(MOTOR_UUID,  output)
         # print(time.time()-start)
 
     def flush_update(self):
         count = 0
+        max_indices = find_three_largest_indices(self.curret_vibs)
+        # print(self.curret_vibs)
         for i in range(self.category_num):
+            if not i in max_indices:
+                self.curret_vibs[i] = -1
             if self.last_vibs[i] != self.curret_vibs[i]: # need update
                 count += 1
                 if self.curret_vibs[i] == -1:
@@ -114,7 +125,8 @@ class TactileFeedbackModule:
 
 if __name__ == "__main__":
     tactile_module = TactileFeedbackModule()
-    for i in range(5, 10):
-        for j in range(1, 11):
-            tactile_module.set_vibration(j, i)
-        tactile_module.flush_update()
+    tactile_module.set_vibration(1, 15)
+    tactile_module.set_vibration(31, 15)
+    tactile_module.flush_update()
+    time.sleep(2)
+    tactile_module.flush_update()
