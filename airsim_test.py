@@ -53,7 +53,7 @@ if not gameController.initSuccess:
 
 # load obstacle settings
 
-filepath = 'D:/2023Fall/DroneSimulation/TestScene/WindowsNoEditor/Blocks/Content/Settings/cubes.txt'
+filepath = 'D:/2023Fall/DroneSimulation/TestSceneBright/WindowsNoEditor/Blocks/Content/Settings/cubes.txt'
 
 def read_cubes_file(file_path):
     cubes = []
@@ -158,11 +158,13 @@ while True:
 
         ### read drone state from AirSim
         api_time = time.time()
-        state = client.getMultirotorState()
+        state = client.getMultirotorState("Drone1")
         collision = client.simGetCollisionInfo()
         pos = state.kinematics_estimated.position
         vel = state.kinematics_estimated.linear_velocity
         ori = state.kinematics_estimated.orientation
+        # pos_gt = client.simGetGroundTruthKinematics("Drone1").position
+        # pos_vh = client.simGetVehiclePose("Drone1").position
         x_ref = np.array([pos.x_val, pos.y_val, -pos.z_val, vel.x_val, vel.y_val, -vel.z_val])
         api_time = time.time() - api_time
         # print("x_ref = ", x_ref)
@@ -186,7 +188,7 @@ while True:
         # x_dot[0:3] = x_dot[0:3] + x_dot[3:6] * delta_time
         # x_safe = x_ref + x_dot * delta_time 
         # x_safe = np.round(x_safe, 3)
-        x_safe = x_ref + u_safe
+        x_safe = x_ref + u_ref
         # print(x_safe.shape, x_ref.shape, u_safe.shape)
         # print("x_safe = ", x_safe, "\n")
 
@@ -194,12 +196,12 @@ while True:
         # if np.abs(v_rot) > 0.3:
             # client.moveByAngleRatesZAsync(0, 0, -v_rot, z = -x_ref[2], duration=0.1)
             # client.moveByAngleRatesThrottleAsync(0, 0, -v_rot, throttle = 0.5945, duration=0.1)
-        if np.linalg.norm(x_safe[3:6]) > 1e-2 or np.abs(v_rot) > 0.3:
+        if (np.linalg.norm(x_safe[3:6]) > 1e-2 or np.abs(v_rot) > 0.3):
             # print("control")
-            client.moveByVelocityAsync(x_safe[3], x_safe[4], -x_safe[5], duration=0.01, yaw_mode=airsim.YawMode(True, v_rot*60))
+            client.moveByVelocityAsync(x_safe[3], x_safe[4], -x_safe[5], duration=0.01, yaw_mode=airsim.YawMode(True, v_rot*60)).join()
         else:
             # print("idle")
-            client.moveByVelocityAsync(0, 0, 0, duration=0.01)
+            client.moveByVelocityAsync(0, 0, 0, duration=0.01).join()
         # client.moveByRollPitchYawZAsync(0, 0, -v_rot, z = -x_safe[], duration=0.01).join()
         # client.moveByAngleRatesThrottleAsync(-v_rot, 0, 0, throttle=1.0, duration=0.1).join()
         # client.rotateByYawRateAsync(-v_rot, duration=0.1)
@@ -211,42 +213,42 @@ while True:
         ### apply force feedback
         u_diff = u_safe[3:6] - u_ref[3:6]
         u_diff_rot = rotation.inv().apply(u_diff)
-        if control_mode == "hand":
-            ### falcon controller
-            K_force = 1.0
-            gameController.set_force([u_diff_rot[1] * K_force, u_diff_rot[2] * K_force, -u_diff_rot[0] * K_force])
-        elif control_mode == "body":
-            ### xbox controller, tactile feedback
-            if not np.allclose(u_ref, u_safe, rtol=1e-05, atol=1e-08): # input is modified
-                # print(u_ref, u_safe)
-                for i in range(len(obstacles)):
-                    obs = obstacles[i]
-                    if obs.isInRange(x_ref):
-                        sc_val = obs.safety_constraint(u_ref)
-                        if sc_val < 0: # obstacle affected
-                            if type(obs) == SafetyConstraint3D:
-                                relative_direction = np.array([obs.d1, obs.d2, obs.d3]) - x_ref[0:3]
-                                duty = np.power(np.abs(sc_val), 1/obs.n)
-                            elif type(obs) == SafetyConstraint2D:
-                                relative_direction = np.array([obs.d1, obs.d2, 0]) - np.array([x_ref[0], x_ref[1], 0])
-                                duty = np.power(np.abs(sc_val), 1/obs.n)
-                            elif type(obs) == SafetyConstraintWall3D:
-                                relative_direction = np.array([-obs.a1, -obs.a2, -obs.a3])
-                                duty = np.abs(sc_val)
-                            else:
-                                exit(-1)
-                            sc_values[i].append(duty)
-                            duty = int(np.clip(duty, 0, 15))
-                            # print(i, type(obs), relative_direction)
-                            relative_direction = rotation.inv().apply(relative_direction) # rotate to body frame
-                            relative_direction /= np.linalg.norm(relative_direction)
-                            angle_distances = np.dot(tactile_module.motor_directions, relative_direction)
-                            # nearest_index = np.argmax(angle_distances)
-                            nearest_indices = np.where(angle_distances == np.max(angle_distances))[0]
-                            # print(nearest_indices)
-                            for nearest_index in nearest_indices:
-                                tactile_module.set_vibration(tactile_module.motor_ids[nearest_index], 15)
-            tactile_module.flush_update()
+        # if control_mode == "hand":
+        #     ### falcon controller
+        #     K_force = 1.0
+        #     gameController.set_force([u_diff_rot[1] * K_force, u_diff_rot[2] * K_force, -u_diff_rot[0] * K_force])
+        # elif control_mode == "body":
+        #     ### xbox controller, tactile feedback
+        #     if not np.allclose(u_ref, u_safe, rtol=1e-05, atol=1e-08): # input is modified
+        #         # print(u_ref, u_safe)
+        #         for i in range(len(obstacles)):
+        #             obs = obstacles[i]
+        #             if obs.isInRange(x_ref):
+        #                 sc_val = obs.safety_constraint(u_ref)
+        #                 if sc_val < 0: # obstacle affected
+        #                     if type(obs) == SafetyConstraint3D:
+        #                         relative_direction = np.array([obs.d1, obs.d2, obs.d3]) - x_ref[0:3]
+        #                         duty = np.power(np.abs(sc_val), 1/obs.n)
+        #                     elif type(obs) == SafetyConstraint2D:
+        #                         relative_direction = np.array([obs.d1, obs.d2, 0]) - np.array([x_ref[0], x_ref[1], 0])
+        #                         duty = np.power(np.abs(sc_val), 1/obs.n)
+        #                     elif type(obs) == SafetyConstraintWall3D:
+        #                         relative_direction = np.array([-obs.a1, -obs.a2, -obs.a3])
+        #                         duty = np.abs(sc_val)
+        #                     else:
+        #                         exit(-1)
+        #                     sc_values[i].append(duty)
+        #                     duty = int(np.clip(duty, 0, 15))
+        #                     # print(i, type(obs), relative_direction)
+        #                     relative_direction = rotation.inv().apply(relative_direction) # rotate to body frame
+        #                     relative_direction /= np.linalg.norm(relative_direction)
+        #                     angle_distances = np.dot(tactile_module.motor_directions, relative_direction)
+        #                     # nearest_index = np.argmax(angle_distances)
+        #                     nearest_indices = np.where(angle_distances == np.max(angle_distances))[0]
+        #                     # print(nearest_indices)
+        #                     for nearest_index in nearest_indices:
+        #                         tactile_module.set_vibration(tactile_module.motor_ids[nearest_index], 15)
+        #     tactile_module.flush_update()
         ble_time = time.time() - ble_time
                         
         
@@ -266,7 +268,7 @@ while True:
             "user_input": u_ref[3:6].tolist(),
             "safe_input": u_safe[3:6].tolist(),
             "input_diff": u_diff_rot.tolist()
-            }
+        }
         evaluation_module.frame_update(data)
 
         ### debug output
@@ -274,26 +276,29 @@ while True:
         current_time = time.time()  # Get the current time
         if current_time - start_time > 1.0: 
             print("FPS = ", count, ", api = ", np.round(api_time, 4), ", ECBF = ", np.round(ecbf_time, 4), ", ble = ", np.round(ble_time, 4))
+            # print("pos___ = ", pos)
+            # print("pos_gt = ", pos_gt)
+            # print("pos_vh = ", pos_vh)
             # print("ori = ", ori)
             count = 0
             start_time = current_time 
-            print("x_ref = ", x_ref)
-            print("v_ref = ", v_ref)
-            print("v_rot = ", v_rot)
-            print("success = ", success)
-            print("u_ref = ", u_ref)
-            print("u_safe = ", u_safe)
+            print("collison = ", collision.has_collided)
+            # print("v_ref = ", v_ref)
+            # print("v_rot = ", v_rot)
+            # print("success = ", success)
+            # print("u_ref = ", u_ref)
+            # print("u_safe = ", u_safe)
             # print("x_safe = ", x_safe, "\n")
             # print("ref safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_ref, x_ref))
             # print("alt safety = ", ecbf.safety_constraint_list[0].safety_constraint(u_safe, x_ref))
             # for i in range(len(ecbf.safety_constraint_list)):
             #     print(i, " ", ecbf.safety_constraint_list[i].safety_constraint(u_ref, x_ref))
 
-        while time.time() < frame_start_time + 0.01:
+        while time.time() < frame_start_time + 0.02:
             continue
     
     except KeyboardInterrupt:
-        evaluation_module.export_data()
+        # evaluation_module.export_data()
         # for i, sc_value in enumerate(sc_values):
         #     if len(sc_value) != 0:
         #         print(i, type(obstacles[i]), np.min(sc_value), np.max(sc_value), np.mean(sc_value), np.std(sc_value))
