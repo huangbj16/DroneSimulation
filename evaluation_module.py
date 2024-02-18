@@ -28,7 +28,7 @@ class EvaluationModule():
 
     def export_data(self):
         export_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        export_filename = "results/data_pilot_p4fake_"+export_time+".txt"
+        export_filename = "results/data_pilot_p5_"+export_time+".txt"
         print("export to ", export_filename)
         with open (export_filename, "w") as f:
             for data in self.data_frame:

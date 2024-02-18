@@ -2,36 +2,70 @@ import matplotlib.pyplot as plt
 import json
 import numpy as np
 
-filename_list = [
-    'data_pilot_p2_20240216_114911',
-    'data_pilot_p2_20240216_115354',
-    'data_pilot_p2_20240216_115612',
-    'data_pilot_p2_20240216_120118',
-    'data_pilot_p2_20240216_120452',
-    'data_pilot_p2_20240216_120640',
-    'data_pilot_p2_20240216_121706',
-    'data_pilot_p2_20240216_122224',
-    'data_pilot_p2_20240216_124427',
-    'data_pilot_p2_20240216_124536',
-    'data_pilot_p2_20240216_124818',
-    'data_pilot_p4fake_20240217_181108',
-    'data_pilot_p4fake_20240217_181545',
-    'data_pilot_p4fake_20240217_181701'
-]
+# filename_list = [
+#     'data_pilot_p2_20240216_114911',
+#     'data_pilot_p2_20240216_115354',
+#     'data_pilot_p2_20240216_115612',
+#     'data_pilot_p2_20240216_120118',
+#     'data_pilot_p2_20240216_120452',
+#     'data_pilot_p2_20240216_120640',
+#     'data_pilot_p2_20240216_121706',
+#     'data_pilot_p2_20240216_122224',
+#     'data_pilot_p2_20240216_124427',
+#     'data_pilot_p2_20240216_124536',
+#     'data_pilot_p2_20240216_124818',
+#     'data_pilot_p4fake_20240217_181108',
+#     'data_pilot_p4fake_20240217_181545',
+#     'data_pilot_p4fake_20240217_181701'
+# ]
+
+# filename_list = [
+#     'data_pilot_p3_20240216_160059',
+#     'data_pilot_p3_20240216_160642',
+#     'data_pilot_p3_20240216_160946',
+#     'data_pilot_p3_20240216_161204',
+#     'data_pilot_p3_20240216_161701',
+#     'data_pilot_p3_20240216_161813',
+#     'data_pilot_p3_20240216_162113',
+#     'data_pilot_p3_20240216_162233',
+#     'data_pilot_p4fake_20240217_181108',
+#     'data_pilot_p4fake_20240217_181545',
+#     'data_pilot_p4fake_20240217_181701'
+# ]
 
 filename_list = [
-    'data_pilot_p3_20240216_160059',
-    'data_pilot_p3_20240216_160642',
-    'data_pilot_p3_20240216_160946',
-    'data_pilot_p3_20240216_161204',
-    'data_pilot_p3_20240216_161701',
-    'data_pilot_p3_20240216_161813',
-    'data_pilot_p3_20240216_162113',
-    'data_pilot_p3_20240216_162233',
-    'data_pilot_p4fake_20240217_181108',
-    'data_pilot_p4fake_20240217_181545',
-    'data_pilot_p4fake_20240217_181701'
+    'data_pilot_p5_20240218_100415',
+    'data_pilot_p5_20240218_101348',
+    'data_pilot_p5_20240218_102927',
+    'data_pilot_p5_20240218_103458',
+    'data_pilot_p5_20240218_103738',
+    'data_pilot_p5_20240218_104506',
+    'data_pilot_p5_20240218_104819',
+    'data_pilot_p5_20240218_110058',
+    'data_pilot_p5_20240218_110332',
+    'data_pilot_p5_20240218_111627',
+    'data_pilot_p5_20240218_111925',
+    'data_pilot_p5_20240218_112037',
+    'data_pilot_p5_20240218_112421',
+    'data_pilot_p5_20240218_112928',
+    'data_pilot_p5_20240218_113044',
+    'data_pilot_p5_20240218_113616',
+    'data_pilot_p5_20240218_114737',
+    'data_pilot_p5_20240218_114830'
 ]
+
+labels = []
+
+controller_options = ['hand', 'body']
+flying_options = ['forward', 'right', 'upward']
+feedback_options = ['no', 'tactile', 'assist']
+
+import itertools
+
+for combination in itertools.product(controller_options, flying_options, feedback_options):
+    labels.append('+'.join(combination))
+
+print(labels)
 
 
 task_duration_list = []
@@ -49,6 +83,7 @@ for filename in filename_list:
     velocities = []
     collision_statuses = []
     input_diffs = []
+    print('load file = ', filename)
 
     # Read the data from the file
     with open('results/'+filename+'.txt', 'r') as file:
@@ -60,7 +95,10 @@ for filename in filename_list:
             positions.append(data['position'])
             velocities.append(data['velocity'])
             collision_statuses.append(1 if data['collision']['has_collided'] else 0)
+            if np.linalg.norm(data['input_diff']) > 100:
+                print("error input", data['user_input'], data['safe_input'])
             input_diffs.append(data['input_diff'])
+
 
     # Convert timestamps to a relative scale if needed
     # For simplicity, this example uses the raw timestamps
@@ -162,6 +200,8 @@ for i, ax in enumerate(axs):
     ax.bar(np.arange(len(filename_list)), data[i])
     ax.set_title(titles[i])
     ax.set_ylabel('Value')
+    ax.set_xticks(np.arange(len(filename_list)))
+    ax.set_xticklabels(labels)
     ax.set_ylim(0, max(data[i]) + max(data[i]) * 0.1)  # Ensure the bar is visible and has some space above
 
 plt.tight_layout()

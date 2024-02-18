@@ -1,0 +1,5 @@
+{
+    "lighting_condition": ["bright", "dark"],
+    "flying_direction": ["forward", "right", "upward"],
+    "feedback_condition": ["none", "hand", "body"]
+}

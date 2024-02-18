@@ -262,6 +262,28 @@ class ExponentialControlBarrierFunction:
     #     print("old A b = ", A, b)
     #     return np.dot(A, u[3:5])+b
 
+    def control_input_optimization_one(self, u_des, safety_constraint):
+        # print("u shape = ", u_des.shape)
+        ### scipy minimize
+        # Define the objective function to be minimized (e.g., a simple quadratic cost on u)
+        objective = lambda u: np.sum((u - u_des)**2)
+        
+        # Define the constraints (we need to ensure that safety_constraint(x, u) >= 0)
+        # constraints = [{'type': 'ineq', 'fun': sc.safety_constraint, 'args': (x_des,)} for sc in self.safety_constraint_list]
+        # print("# of constraint = ", len(constraints))
+
+        x0 = np.random.randn(u_des.shape[0])
+        # print(x0)
+        
+        # Solve the optimization problem
+        u_opt = minimize(objective, x0, method="SLSQP", constraints={'type': 'ineq', 'fun': safety_constraint.safety_constraint}, tol=1e-6, options={'maxiter': 1000})
+
+        # print("ref safety = ", self.safety_constraint_list[0].safety_constraint(u_des, x_des))
+        # print("alt safety = ", self.safety_constraint_list[0].safety_constraint(u_opt.x, x_des))
+        # print(u_opt)
+        # Return the optimal control input
+        return u_opt.x, u_opt.success
+
     # Define an optimization problem to find the control input u that satisfies the safety constraint
     def control_input_optimization(self, x_des, u_des):
         # print("u shape = ", u_des.shape)
