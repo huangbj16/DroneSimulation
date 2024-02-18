@@ -2,19 +2,22 @@ import matplotlib.pyplot as plt
 import json
 import numpy as np
 
-# filename_list = [
-#     'data_pilot_p2_20240216_114911',
-#     'data_pilot_p2_20240216_115354',
-#     'data_pilot_p2_20240216_115612',
-#     'data_pilot_p2_20240216_120118',
-#     'data_pilot_p2_20240216_120452',
-#     'data_pilot_p2_20240216_120640',
-#     'data_pilot_p2_20240216_121706',
-#     'data_pilot_p2_20240216_122224',
-#     'data_pilot_p2_20240216_124427',
-#     'data_pilot_p2_20240216_124536',
-#     'data_pilot_p2_20240216_124818'
-# ]
+filename_list = [
+    'data_pilot_p2_20240216_114911',
+    'data_pilot_p2_20240216_115354',
+    'data_pilot_p2_20240216_115612',
+    'data_pilot_p2_20240216_120118',
+    'data_pilot_p2_20240216_120452',
+    'data_pilot_p2_20240216_120640',
+    'data_pilot_p2_20240216_121706',
+    'data_pilot_p2_20240216_122224',
+    'data_pilot_p2_20240216_124427',
+    'data_pilot_p2_20240216_124536',
+    'data_pilot_p2_20240216_124818',
+    'data_pilot_p4fake_20240217_181108',
+    'data_pilot_p4fake_20240217_181545',
+    'data_pilot_p4fake_20240217_181701'
+]
 
 filename_list = [
     'data_pilot_p3_20240216_160059',
@@ -24,8 +27,12 @@ filename_list = [
     'data_pilot_p3_20240216_161701',
     'data_pilot_p3_20240216_161813',
     'data_pilot_p3_20240216_162113',
-    'data_pilot_p3_20240216_162233'
+    'data_pilot_p3_20240216_162233',
+    'data_pilot_p4fake_20240217_181108',
+    'data_pilot_p4fake_20240217_181545',
+    'data_pilot_p4fake_20240217_181701'
 ]
+
 
 task_duration_list = []
 task_distance_list = []
@@ -147,7 +154,7 @@ data = [
 ]
 
 # Create subplots
-plt.clf()
+# plt.clf()
 fig, axs = plt.subplots(7, figsize=(10, 20))
 
 # Plot each bar chart

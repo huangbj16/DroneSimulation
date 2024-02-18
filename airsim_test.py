@@ -16,7 +16,7 @@ import asyncio
 
 np.set_printoptions(precision=3, suppress=True)
 
-control_mode = "body"
+control_mode = "hand"
 
 if control_mode == "body":
     tactile_module = TactileFeedbackModule()
@@ -152,9 +152,9 @@ while True:
                 v_rot = -1.0
             if (button_val & 8) == 8:
                 v_rot = 1.0
-            v_ref[0] = -np.round(user_input[2], 3) * 100
-            v_ref[1] = np.round(user_input[0], 3) * 100
-            v_ref[2] = np.round(user_input[1], 3) * 100
+            v_ref[0] = -np.round(user_input[2]+0.014, 3) * 100
+            v_ref[1] = np.round(user_input[0]+0.001, 3) * 100
+            v_ref[2] = np.round(user_input[1]-0.003, 3) * 100
 
         ### read drone state from AirSim
         api_time = time.time()
@@ -275,14 +275,14 @@ while True:
         count += 1
         current_time = time.time()  # Get the current time
         if current_time - start_time > 1.0: 
-            print("FPS = ", count, ", api = ", np.round(api_time, 4), ", ECBF = ", np.round(ecbf_time, 4), ", ble = ", np.round(ble_time, 4))
+            # print("FPS = ", count, ", api = ", np.round(api_time, 4), ", ECBF = ", np.round(ecbf_time, 4), ", ble = ", np.round(ble_time, 4))
             # print("pos___ = ", pos)
             # print("pos_gt = ", pos_gt)
             # print("pos_vh = ", pos_vh)
             # print("ori = ", ori)
             count = 0
             start_time = current_time 
-            print("collison = ", collision.has_collided)
+            # print("collison = ", collision.has_collided)
             # print("v_ref = ", v_ref)
             # print("v_rot = ", v_rot)
             # print("success = ", success)
@@ -298,7 +298,7 @@ while True:
             continue
     
     except KeyboardInterrupt:
-        # evaluation_module.export_data()
+        evaluation_module.export_data()
         # for i, sc_value in enumerate(sc_values):
         #     if len(sc_value) != 0:
         #         print(i, type(obstacles[i]), np.min(sc_value), np.max(sc_value), np.mean(sc_value), np.std(sc_value))
