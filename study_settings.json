@@ -1,5 +1,8 @@
 {
-    "lighting_condition": ["bright", "dark"],
-    "flying_direction": ["forward", "right", "upward"],
-    "feedback_condition": ["none", "hand", "body"]
+    "control_mode": ["hand", "body"],
+    "fly_mode": ["forward", "right", "upward"],
+    "participant_id": ["test_p1"],
+    "is_feedback_on": ["False"],
+    "is_assistance_on": ["False"],
+    "export_data": ["False"]
 }

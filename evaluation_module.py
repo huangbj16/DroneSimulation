@@ -20,15 +20,20 @@ case-by-case
 
 
 class EvaluationModule():
-    def __init__(self) -> None:
+    def __init__(self, name, control_mode, fly_mode, feedback, assistance) -> None:
         self.data_frame = []
-
+        self.name = name
+        self.control_mode = control_mode
+        self.fly_mode = fly_mode
+        self.feedback = feedback
+        self.assistance = assistance
+        
     def frame_update(self, data):
         self.data_frame.append(data)
 
     def export_data(self):
         export_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        export_filename = "results/data_pilot_p5_"+export_time+".txt"
+        export_filename = f"results/data_{self.name}_{self.control_mode}_{self.fly_mode}_{self.feedback}_{self.assistance}_{export_time}.txt"
         print("export to ", export_filename)
         with open (export_filename, "w") as f:
             for data in self.data_frame:
