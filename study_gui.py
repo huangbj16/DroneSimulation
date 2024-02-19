@@ -71,17 +71,41 @@ print(setting_UI_elements)
 import subprocess
 import time
 
+cubes_path = "D:/2023Fall/DroneSimulation/TestSceneBright/WindowsNoEditor/Blocks/Content/Settings"
+cubes_filename = "cubes.txt"
+flymode_filenames = {
+    "forward": ["cubes_formalstudy_forward_1.txt", "cubes_formalstudy_forward_2.txt"],
+    "right": ["cubes_formalstudy_right_1.txt", "cubes_formalstudy_right_2.txt",],
+    "upward": ["cubes_formalstudy_upward_1.txt", "cubes_formalstudy_upward_2.txt"]
+}
+
+'''
+match the fly_mode with the filename, and copy the flymode file to the cubes.txt
+'''
+def load_fly_mode(fly_mode):
+    if fly_mode in flymode_filenames.keys():
+        with open(cubes_path + "/" + cubes_filename, "w") as f:
+            filename = flymode_filenames[fly_mode][0]
+            with open(cubes_path + "/" + filename, "r") as f2:
+                f.write(f2.read())
+    else:
+        print("fly_mode not found: ", fly_mode)
+        exit(-1)
+
+
 def start_new_task():
-    print("start!")
-    # Step 1: Run a Python script in a new cmd window
-    subprocess.Popen(f'start cmd /k C:/python27/python.exe ./FalconBindings/test_socket_server.py', shell=True)
-    time.sleep(3)  # Wait for 1 second
+    print("start new task!")
     command = ''
+    is_hand = False
+    fly_mode = 'forward'
     for key, value in zip(setting_names, setting_UI_elements):
         if key == "control_mode":
             command += f" --control_mode {value.selected_option}"
+            if value.selected_option == "hand":
+                is_hand = True
         elif key == "fly_mode":
             command += f" --fly_mode {value.selected_option}"
+            fly_mode = value.selected_option
         elif key == "participant_id":
             command += f" --participant_name {value.get_text()}"
         elif key == "is_feedback_on":
@@ -96,10 +120,14 @@ def start_new_task():
         else:
             print("bug!!! ", key, value)
             exit(-1)
+    if is_hand:
+        subprocess.Popen(f'start cmd /k C:/python27/python.exe ./FalconBindings/test_socket_server.py', shell=True)
+        time.sleep(3)  # Wait for 1 second
+    load_fly_mode(fly_mode)
     subprocess.Popen(f'start ../TestSceneBright/WindowsNoEditor/Blocks.exe', shell=True)
     time.sleep(3)  # Wait for 1 second
     print(command)
-    subprocess.Popen('start cmd /k conda activate airsim && python airsim_test.py'+command, shell=True)
+    subprocess.Popen('start cmd /k python airsim_test.py'+command, shell=True)
 
 
 # Main loop
