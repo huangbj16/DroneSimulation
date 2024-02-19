@@ -33,7 +33,7 @@ class EvaluationModule():
 
     def export_data(self):
         export_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-        export_filename = f"results/data_{self.name}_{self.control_mode}_{self.fly_mode}_{self.feedback}_{self.assistance}_{export_time}.txt"
+        export_filename = f"results/data_{export_time}_{self.name}_{self.control_mode}_{self.fly_mode}_{self.feedback}_{self.assistance}.txt"
         print("export to ", export_filename)
         with open (export_filename, "w") as f:
             for data in self.data_frame:

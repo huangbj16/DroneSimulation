@@ -11,8 +11,8 @@ from scipy.spatial.transform import Rotation as R
 from datetime import datetime
 from evaluation_module import EvaluationModule
 from tactile_feedback_module import TactileFeedbackModule
-import keyboard
 import argparse
+from situation_awareness_popup import get_situation_awareness_answers
 np.set_printoptions(precision=3, suppress=True)
 
 
@@ -153,16 +153,20 @@ evaluation_module = EvaluationModule(participant_name, control_mode, fly_mode, i
 count = 0
 start_time = time.time()
 # sc_values = [[] for _ in range(len(obstacles))]
+has_paused = False
+pause_distance = 25.0
+if fly_mode == "forward":
+    fly_forward_vector = np.array([1, 0, 0], dtype=np.float64)
+elif fly_mode == "right":
+        fly_forward_vector = np.array([0, 1, 0], dtype=np.float64)
+elif fly_mode == "upward":
+        fly_forward_vector = np.array([0, 0, 1], dtype=np.float64)
+else:
+    print("fly_mode not found: ", fly_mode)
+    exit(-1)
 
 while True:
-    try:
-        # pause function
-        if keyboard.is_pressed('p'):
-            print("press p!")
-            client.simPause(True)
-            _ = input()
-            client.simPause(False)
-        
+    try:        
         # record the frame start time
         frame_start_time = time.time()
         # read user input from controller
@@ -200,6 +204,16 @@ while True:
         x_ref = np.array([pos.x_val, pos.y_val, -pos.z_val, vel.x_val, vel.y_val, -vel.z_val])
         # api_time = time.time() - api_time
         # print("x_ref = ", x_ref)
+
+        ### pause if drone passes the boundary
+        if not has_paused:
+            if np.dot(x_ref[0:3], fly_forward_vector) > pause_distance:
+                has_paused = True
+                client.simPause(True)
+                print("pause")
+                sa_answers = get_situation_awareness_answers()
+                evaluation_module.frame_update({"timestamp": state.timestamp, "situation_awareness": sa_answers})
+                client.simPause(False)
 
         ### convert the user input to drone orientation
         rotation = R.from_quat([0, 0, ori.z_val, ori.w_val])
