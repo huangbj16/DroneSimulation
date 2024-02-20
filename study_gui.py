@@ -75,9 +75,9 @@ import time
 cubes_path = "D:/2023Fall/DroneSimulation/TestSceneBright/WindowsNoEditor/Blocks/Content/Settings"
 cubes_filename = "cubes.txt"
 flymode_filenames = {
-    "forward": ["cubes_formalstudy_forward_1.txt", "cubes_formalstudy_forward_2.txt"],
-    "right": ["cubes_formalstudy_right_1.txt", "cubes_formalstudy_right_2.txt",],
-    "upward": ["cubes_formalstudy_upward_1.txt", "cubes_formalstudy_upward_2.txt"],
+    "forward": ["cubes_formalstudy_forward_1.txt", "cubes_formalstudy_forward_2.txt", "cubes_formalstudy_forward_3.txt"],
+    "right": ["cubes_formalstudy_right_1.txt", "cubes_formalstudy_right_2.txt", "cubes_formalstudy_right_3.txt"],
+    "upward": ["cubes_formalstudy_upward_1.txt", "cubes_formalstudy_upward_2.txt", "cubes_formalstudy_upward_3.txt"],
     "practice_cube": ["cubes_practice_cube.txt"],
     "practice_forward": ["cubes_pilotmapforward.txt"],
     "practice_right": ["cubes_pilotmapright.txt"],
