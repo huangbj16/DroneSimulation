@@ -86,7 +86,7 @@ class TactileFeedbackModule:
 
     async def set_motor(self, command):
         output = bytearray(json.dumps(command), 'utf-8')
-        print(output)
+        # print(output)
         # start = time.time()
         await self.client.write_gatt_char(MOTOR_UUID,  output)
         # print(time.time()-start)

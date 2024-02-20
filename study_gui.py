@@ -1,6 +1,7 @@
 import pygame
 import pygame_gui
 import json
+import numpy as np
 
 pygame.init()
 
@@ -76,7 +77,11 @@ cubes_filename = "cubes.txt"
 flymode_filenames = {
     "forward": ["cubes_formalstudy_forward_1.txt", "cubes_formalstudy_forward_2.txt"],
     "right": ["cubes_formalstudy_right_1.txt", "cubes_formalstudy_right_2.txt",],
-    "upward": ["cubes_formalstudy_upward_1.txt", "cubes_formalstudy_upward_2.txt"]
+    "upward": ["cubes_formalstudy_upward_1.txt", "cubes_formalstudy_upward_2.txt"],
+    "practice_cube": ["cubes_practice_cube.txt"],
+    "practice_forward": ["cubes_pilotmapforward.txt"],
+    "practice_right": ["cubes_pilotmapright.txt"],
+    "practice_upward": ["cubes_pilotmapupward.txt"],
 }
 
 '''
@@ -85,9 +90,11 @@ match the fly_mode with the filename, and copy the flymode file to the cubes.txt
 def load_fly_mode(fly_mode):
     if fly_mode in flymode_filenames.keys():
         with open(cubes_path + "/" + cubes_filename, "w") as f:
-            filename = flymode_filenames[fly_mode][0]
+            choice = np.random.choice(flymode_filenames[fly_mode], 1)[0]
+            filename = choice
             with open(cubes_path + "/" + filename, "r") as f2:
                 f.write(f2.read())
+        return filename
     else:
         print("fly_mode not found: ", fly_mode)
         exit(-1)
@@ -123,7 +130,8 @@ def start_new_task():
     if is_hand:
         subprocess.Popen(f'start cmd /k C:/python27/python.exe ./FalconBindings/test_socket_server.py', shell=True)
         time.sleep(3)  # Wait for 1 second
-    load_fly_mode(fly_mode)
+    fly_map = load_fly_mode(fly_mode)
+    command += f" --fly_map {fly_map}"
     subprocess.Popen(f'start ../TestSceneBright/WindowsNoEditor/Blocks.exe', shell=True)
     time.sleep(3)  # Wait for 1 second
     print(command)

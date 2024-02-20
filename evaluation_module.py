@@ -20,13 +20,22 @@ case-by-case
 
 
 class EvaluationModule():
-    def __init__(self, name, control_mode, fly_mode, feedback, assistance) -> None:
+    def __init__(self, name, control_mode, fly_mode, fly_map, feedback, assistance) -> None:
         self.data_frame = []
         self.name = name
         self.control_mode = control_mode
         self.fly_mode = fly_mode
         self.feedback = feedback
         self.assistance = assistance
+        study_configs = {
+            "control_mode": control_mode,
+            "fly_mode": fly_mode,
+            "fly_map": fly_map,
+            "is_feedback_on": feedback,
+            "is_assistance_on": assistance,
+            "participant_name": name
+        }
+        self.data_frame.append(study_configs)
         
     def frame_update(self, data):
         self.data_frame.append(data)

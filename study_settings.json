@@ -1,6 +1,6 @@
 {
     "control_mode": ["hand", "body"],
-    "fly_mode": ["forward", "right", "upward"],
+    "fly_mode": ["forward", "right", "upward", "practice_cube", "practice_forward", "practice_right", "practice_upward"],
     "participant_id": ["test_p1"],
     "is_feedback_on": ["False"],
     "is_assistance_on": ["False"],
