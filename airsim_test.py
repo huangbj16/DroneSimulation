@@ -213,6 +213,11 @@ while True:
                 print("pause")
                 sa_answers = get_situation_awareness_answers()
                 evaluation_module.frame_update({"timestamp": state.timestamp, "situation_awareness": sa_answers})
+                ### reinitialize the controller
+                if control_mode == "body":
+                    gameController = XboxController()
+                    if not gameController.initSuccess:
+                        exit(-1)
                 client.simPause(False)
 
         ### convert the user input to drone orientation

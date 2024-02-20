@@ -5,7 +5,8 @@ import pygame_gui
 def get_situation_awareness_answers() -> dict:
 
     # Initialize pygame
-    # pygame.init()
+    if pygame.get_init() == False:
+        pygame.init()
 
     # Set the size of the main window
     window_size = (500, 500)
@@ -68,6 +69,6 @@ def get_situation_awareness_answers() -> dict:
     # Print the answers to check
     print(answers_dict)
 
-    # pygame.quit()
+    pygame.quit()
 
     return answers_dict
