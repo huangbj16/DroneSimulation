@@ -18,9 +18,9 @@ def find_three_largest_indices(lst):
 class TactileFeedbackModule:
 
     def __init__(self) -> None:
-        self.category_num = 46
+        self.category_num = 32
         self.buck_ids = [0, 30, 120, 150]
-        self.motor_ids = [ 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162]
+        self.motor_ids = []
         self.last_vibs = [-1 for _ in range(self.category_num)]
         self.curret_vibs = [-1 for _ in range(self.category_num)]
         self.motor_directions = []
@@ -36,9 +36,11 @@ class TactileFeedbackModule:
             lines = f.readlines()
             for line in lines:
                 data = json.loads(line)
+                self.motor_ids.append(data["motor_id"])
                 direction = data["direction"]
                 self.motor_directions.append([direction[2], direction[0], direction[1]])
-        self.motor_directions = np.array(self.motor_directions)
+        self.motor_directions = np.round(np.array(self.motor_directions), 3)
+        print("motor ids = ", self.motor_ids)
         print("motor directinos = ", self.motor_directions)
 
     # def run_bluetooth_in_thread(self):
