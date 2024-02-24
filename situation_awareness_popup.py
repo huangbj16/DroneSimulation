@@ -24,12 +24,12 @@ def get_situation_awareness_answers() -> dict:
         # popup_window = pygame_gui.elements.UIWindow(rect=pygame.Rect((250, 200), (300, 200)), manager=manager, window_display_title="Questionnaire")
 
         # Add text labels for questions
-        question1 = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 10, 400, 40), text="Question 1: where are the obstacles?", manager=manager)
-        question2 = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 210, 400, 40), text="Question 2: how to avoid the obstacles?", manager=manager)
+        question1 = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 10, 480, 40), text="Question 1: Are there obstacles in your moving direction?", manager=manager)
+        question2 = pygame_gui.elements.UILabel(relative_rect=pygame.Rect(10, 210, 480, 40), text="Question 2: how to steer your drone to avoid them?", manager=manager)
 
         # Add text entry boxes for answers
-        answer1_entry = pygame_gui.elements.UITextEntryBox(relative_rect=pygame.Rect(10, 50, 400, 100), manager=manager)
-        answer2_entry = pygame_gui.elements.UITextEntryBox(relative_rect=pygame.Rect(10, 250, 400, 100), manager=manager)
+        answer1_entry = pygame_gui.elements.UITextEntryBox(relative_rect=pygame.Rect(10, 50, 480, 100), manager=manager)
+        answer2_entry = pygame_gui.elements.UITextEntryBox(relative_rect=pygame.Rect(10, 250, 480, 100), manager=manager)
 
         # Add a submit button
         submit_btn = pygame_gui.elements.UIButton(relative_rect=pygame.Rect(10, 400, 400, 50), text="Submit", manager=manager)

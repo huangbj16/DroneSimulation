@@ -237,7 +237,7 @@ while True:
             # client.moveByAngleRatesThrottleAsync(0, 0, -v_rot, throttle = 0.5945, duration=0.1)
         if (np.linalg.norm(x_safe[3:6]) > 1e-2 or np.abs(v_rot) > 0.3):
             # print("control")
-            if fly_mode == "upward":
+            if fly_mode == "upward" or fly_mode == "practice_upward":
                 client.moveByVelocityAsync(x_safe[3], x_safe[4], -x_safe[5], duration=0.01, yaw_mode=airsim.YawMode(True, v_rot*60)).join()
             else:
                 client.moveByVelocityAsync(x_safe[3], x_safe[4], -x_safe[5], duration=0.01, yaw_mode=airsim.YawMode(False, 0)).join()
@@ -259,7 +259,7 @@ while True:
         if is_feedback_on:
             if control_mode == "hand":
                 ### falcon controller
-                K_force = 1.0
+                K_force = 2.0
                 gameController.set_force([u_diff_rot[1] * K_force, u_diff_rot[2] * K_force, -u_diff_rot[0] * K_force])
             elif control_mode == "body":
                 ### xbox controller, tactile feedback
