@@ -1,6 +1,8 @@
 import matplotlib.pyplot as plt
 import json
 import numpy as np
+import os
+import re
 
 # filename_list = [
 #     'data_pilot_p2_20240216_114911',
@@ -33,48 +35,93 @@ import numpy as np
 #     'data_pilot_p4fake_20240217_181701'
 # ]
 
-filename_list = [
-    'data_pilot_p5_20240218_100415',
-    'data_pilot_p5_20240218_101348',
-    'data_pilot_p5_20240218_102927',
-    'data_pilot_p5_20240218_103458',
-    'data_pilot_p5_20240218_103738',
-    'data_pilot_p5_20240218_104506',
-    'data_pilot_p5_20240218_104819',
-    'data_pilot_p5_20240218_110058',
-    'data_pilot_p5_20240218_110332',
-    'data_pilot_p5_20240218_111627',
-    'data_pilot_p5_20240218_111925',
-    'data_pilot_p5_20240218_112037',
-    'data_pilot_p5_20240218_112421',
-    'data_pilot_p5_20240218_112928',
-    'data_pilot_p5_20240218_113044',
-    'data_pilot_p5_20240218_113616',
-    'data_pilot_p5_20240218_114737',
-    'data_pilot_p5_20240218_114830'
+categories = [
+    'body_forward_False_False',
+    'body_right_False_False',
+    'body_upward_False_False',
+    'body_forward_True_False',
+    'body_right_True_False',
+    'body_upward_True_False',
+    'body_forward_True_True',
+    'body_right_True_True',
+    'body_upward_True_True',
+    'hand_forward_True_False',
+    'hand_right_True_False',
+    'hand_upward_True_False',
+    'hand_forward_True_True',
+    'hand_right_True_True',
+    'hand_upward_True_True'
 ]
 
-labels = []
+filenames_folder = os.listdir('results')
+filename_list = []
+for filename in filenames_folder:
+    if 'formal' in filename and 'formalp9' in filename:
+        # print(filename)
+        filename_list.append(filename)
 
-controller_options = ['hand', 'body']
-flying_options = ['forward', 'right', 'upward']
-feedback_options = ['no', 'tactile', 'assist']
+# labels = []
 
-import itertools
+# controller_options = ['hand', 'body']
+# flying_options = ['forward', 'right', 'upward']
+# feedback_options = ['False_False', 'True_False', 'True_True']
 
-for combination in itertools.product(controller_options, flying_options, feedback_options):
-    labels.append('+'.join(combination))
+# import itertools
 
-print(labels)
+# for combination in itertools.product(controller_options, flying_options, feedback_options):
+#     labels.append('_'.join(combination))
 
 
-task_duration_list = []
-task_distance_list = []
-task_vel_mean_list = []
-task_vel_std_list = []
-task_input_mean_list = []
-task_input_std_list = []
-task_collision_count_list = []
+task_duration_list = [[] for _ in range(len(categories))]
+task_distance_list = [[] for _ in range(len(categories))]
+task_vel_mean_list = [[] for _ in range(len(categories))]
+task_vel_std_list = [[] for _ in range(len(categories))]
+task_input_mean_list = [[] for _ in range(len(categories))]
+task_input_std_list = [[] for _ in range(len(categories))]
+task_collision_duration_list = [[] for _ in range(len(categories))]
+task_collision_count_list = [[] for _ in range(len(categories))]
+
+# task_duration_list = []
+# task_distance_list = []
+# task_vel_mean_list = []
+# task_vel_std_list = []
+# task_input_mean_list = []
+# task_input_std_list = []
+# task_collision_count_list = []
+
+'''
+    funciton of collision_filter
+    remove repeat count of collision
+    1. "has_collided": true -> means it is a collision
+    2. if the index of the collision in the list is 0, then do not count
+    3. when there is a collision, then count += 1; set it as the current collision time and current object_id
+    4. for any following collision happened in the next 1.0s with the same object_id, then do not count
+    5. if the next collision is 1.0s after the last collision, then count += 1; set it as the current collision time and current object_id
+    6. if the next collision is with a different object, then count += 1; set it as the current collision time and current object_id
+'''
+def collision_filter(collision_list):
+    count = 0
+    last_collision_time = 0
+    last_object_id = 0
+    for i in range(len(collision_list)):
+        if collision_list[i]['has_collided'] and i > 0:
+            if last_collision_time == 0:
+                last_collision_time = collision_list[i]['time_stamp']
+                last_object_id = collision_list[i]['object_id']
+                count += 1
+            elif collision_list[i]['time_stamp'] - last_collision_time > 1.0e9:
+                last_collision_time = collision_list[i]['time_stamp']
+                last_object_id = collision_list[i]['object_id']
+                count += 1
+            elif collision_list[i]['object_id'] != last_object_id:
+                last_collision_time = collision_list[i]['time_stamp']
+                last_object_id = collision_list[i]['object_id']
+                count += 1
+            else:
+                last_collision_time = collision_list[i]['time_stamp']
+
+    return count
+
 
 for filename in filename_list:
     # Initialize lists to hold the data
@@ -82,23 +129,70 @@ for filename in filename_list:
     positions = []
     velocities = []
     collision_statuses = []
+    controller_inputs = []
     input_diffs = []
+    collision_list = []
     print('load file = ', filename)
 
+    # find category of the filename
+    pattern = r"data_\d{8}_\d{6}_formalp\d+_(.*).txt"
+    category_name = re.sub(pattern, r'\1', filename)
+    # print('category_name = ', category_name)
+    category_index = categories.index(category_name)
+    # print('category_index = ', category_index)
+
     # Read the data from the file
-    with open('results/'+filename+'.txt', 'r') as file:
+    with open('results/'+filename, 'r') as file:
         for line in file:
             data = json.loads(line)
-            
+            if 'control_mode' in data.keys():
+                control_mode = data['control_mode']
+                fly_mode = data['fly_mode']
+                if fly_mode == 'forward':
+                    direction_vector = np.array([1, 0, 0])
+                elif fly_mode == 'right':
+                    direction_vector = np.array([0, 1, 0])
+                elif fly_mode == 'upward':
+                    direction_vector = np.array([0, 0, 1])
+                else:
+                    print('error fly_mode')
+                    exit(-1)
+                continue # skip the first line
+            if 'situation_awareness' in data.keys():
+                print('situation_awareness', data['situation_awareness'])
+                continue
             # Append data to lists
             timestamps.append(data['timestamp'])
             positions.append(data['position'])
             velocities.append(data['velocity'])
             collision_statuses.append(1 if data['collision']['has_collided'] else 0)
+            collision_list.append(data['collision'])
+            controller_inputs.append(data['controller_input'])
             if np.linalg.norm(data['input_diff']) > 100:
-                print("error input", data['user_input'], data['safe_input'])
-            input_diffs.append(data['input_diff'])
+                print("error input", data['optimization'], data['user_input'], data['safe_input'])
+                input_diffs.append([0, 0, 0])
+            else:
+                input_diffs.append(data['input_diff'])
 
+    # crop data from start command to finish
+    start_frame = -1
+    end_frame = len(timestamps)+1
+    for i in range(len(timestamps)):
+        if np.linalg.norm(controller_inputs[i]) > 1e-3 and start_frame == -1:
+            start_frame = i
+        if np.dot(positions[i], direction_vector) > 50.0 and end_frame == len(timestamps)+1:
+            end_frame = i
+    assert start_frame != -1
+    assert end_frame != len(timestamps)+1
+    print('start_frame = ', start_frame, 'end_frame = ', end_frame)
+    timestamps = timestamps[start_frame:end_frame]
+    positions = positions[start_frame:end_frame]
+    velocities = velocities[start_frame:end_frame]
+    collision_statuses = collision_statuses[start_frame:end_frame]
+    input_diffs = input_diffs[start_frame:end_frame]
+    controller_inputs = controller_inputs[start_frame:end_frame]
+    collision_list = collision_list[start_frame:end_frame]
+    collision_count = collision_filter(collision_list)
 
     # Convert timestamps to a relative scale if needed
     # For simplicity, this example uses the raw timestamps
@@ -120,15 +214,16 @@ for filename in filename_list:
     task_vel_std = np.std(velocities_magnitude)
     task_input_mean = np.mean(input_diffs_magnitude)
     task_input_std = np.std(input_diffs_magnitude)
-    task_collision_count = np.sum(collision_statuses)
+    task_collision_duration = np.sum(collision_statuses)
 
-    task_duration_list.append(task_duration)
-    task_distance_list.append(task_distance)
-    task_vel_mean_list.append(task_vel_mean)
-    task_vel_std_list.append(task_vel_std)
-    task_input_mean_list.append(task_input_mean)
-    task_input_std_list.append(task_input_std)
-    task_collision_count_list.append(task_collision_count)
+    task_duration_list[category_index].append(task_duration)
+    task_distance_list[category_index].append(task_distance)
+    task_vel_mean_list[category_index].append(task_vel_mean)
+    task_vel_std_list[category_index].append(task_vel_std)
+    task_input_mean_list[category_index].append(task_input_mean)
+    task_input_std_list[category_index].append(task_input_std)
+    task_collision_duration_list[category_index].append(task_collision_duration)
+    task_collision_count_list[category_index].append(collision_count)
     
     # # Plotting
     # plt.clf()
@@ -162,21 +257,22 @@ for filename in filename_list:
     # plt.show()
     
 # Now each list contains its respective variable value
-print("Task Duration List:", task_duration_list)
-print("Task Distance List:", task_distance_list)
-print("Task Velocity Mean List:", task_vel_mean_list)
-print("Task Velocity STD List:", task_vel_std_list)
-print("Task Input Mean List:", task_input_mean_list)
-print("Task Input STD List:", task_input_std_list)
-print("Task Collision Count List:", task_collision_count_list)
+# print("Task Duration List:", task_duration_list)
+# print("Task Distance List:", task_distance_list)
+# print("Task Velocity Mean List:", task_vel_mean_list)
+# print("Task Velocity STD List:", task_vel_std_list)
+# print("Task Input Mean List:", task_input_mean_list)
+# print("Task Input STD List:", task_input_std_list)
+# print("Task Collision Count List:", task_collision_count_list)
 
 titles = [
     'Task Duration',
     'Task Distance',
     'Task Velocity Mean',
     'Task Velocity STD',
-    'Task Input Mean',
-    'Task Input STD',
+    'Task Input Diff Mean',
+    'Task Input Diff STD',
+    'Task Collision Duration',
     'Task Collision Count'
 ]
 
@@ -188,21 +284,64 @@ data = [
     task_vel_std_list,
     task_input_mean_list,
     task_input_std_list,
+    task_collision_duration_list,
     task_collision_count_list
 ]
 
+
+print(task_collision_count_list)
+
+def generate_gradient_colormaps(base_colors):
+    """
+    Generates a list of gradient colormaps for each base color, transitioning from light to dark.
+    """
+    gradient_colormaps = {}
+    for color_name, base_color in base_colors.items():
+        # Define the color gradient: start with a lighter version of the base color and end with a darker version
+        colors = [base_color + np.array([0.2, 0.2, 0.2, 0]),  # Lighter
+                  base_color + np.array([0.1, 0.1, 0.1, 0]),  # Slightly lighter
+                  base_color,  # Base color
+                  base_color - np.array([0.1, 0.1, 0.1, 0]),  # Slightly darker
+                  base_color - np.array([0.2, 0.2, 0.2, 0])]  # Darker
+        # Ensure color values are within valid range [0, 1]
+        colors = np.clip(colors, 0, 1)
+        gradient_colormaps[color_name] = colors
+    return gradient_colormaps
+
+# Base colors for Blue, Orange, Green from 'tab10' colormap
+base_colors = {
+    'Blue': np.array([0.12156863, 0.46666667, 0.70588235, 1]),
+    'Orange': np.array([1.0, 0.49803922, 0.05490196, 1]),
+    'Green': np.array([0.17254902, 0.62745098, 0.17254902, 1])
+}
+
+# Generate gradient colormaps for each color
+gradient_colormaps = generate_gradient_colormaps(base_colors)
+
+cmaps = []
+
+for i, (color_name, gradients) in enumerate(gradient_colormaps.items()):
+    for j, color in enumerate(gradients):
+        cmaps.append(color)
+
+cmaps = np.array(cmaps).reshape(3, 5, 4)
+cmaps = cmaps.transpose(1, 0, 2).reshape(15, 4)
+
 # Create subplots
 # plt.clf()
-fig, axs = plt.subplots(7, figsize=(10, 20))
+fig, axs = plt.subplots(8, figsize=(10, 40))
 
 # Plot each bar chart
 for i, ax in enumerate(axs):
-    ax.bar(np.arange(len(filename_list)), data[i])
+    data_mean = [np.mean(data[i][j]) for j in range(len(categories))]
+    data_std = [np.std(data[i][j]) for j in range(len(categories))]
+    ax.bar(np.arange(len(categories)), data_mean, yerr=data_std, color=cmaps, align='center', alpha=0.5, ecolor='black', capsize=10)
     ax.set_title(titles[i])
     ax.set_ylabel('Value')
-    ax.set_xticks(np.arange(len(filename_list)))
-    ax.set_xticklabels(labels)
-    ax.set_ylim(0, max(data[i]) + max(data[i]) * 0.1)  # Ensure the bar is visible and has some space above
+    ax.set_xticks(np.arange(len(categories)))
+    if i == axs.size - 1:
+        ax.set_xticklabels(categories, rotation=45, ha='right')
+    # ax.set_ylim(0, max(data_mean) + max(data_mean) * 0.1)  # Ensure the bar is visible and has some space above
 
 plt.tight_layout()
 plt.show()
