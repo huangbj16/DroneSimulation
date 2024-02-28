@@ -39,24 +39,24 @@ categories = [
     'body_forward_False_False',
     'body_right_False_False',
     'body_upward_False_False',
-    'body_forward_True_False',
-    'body_right_True_False',
-    'body_upward_True_False',
-    'body_forward_True_True',
-    'body_right_True_True',
-    'body_upward_True_True',
     'hand_forward_True_False',
     'hand_right_True_False',
     'hand_upward_True_False',
     'hand_forward_True_True',
     'hand_right_True_True',
-    'hand_upward_True_True'
+    'hand_upward_True_True',
+    'body_forward_True_False',
+    'body_right_True_False',
+    'body_upward_True_False',
+    'body_forward_True_True',
+    'body_right_True_True',
+    'body_upward_True_True'
 ]
 
 filenames_folder = os.listdir('results')
 filename_list = []
 for filename in filenames_folder:
-    if 'formal' in filename and 'formalp9' in filename:
+    if 'formal' in filename and not 'formalp5' in filename and not 'formalp7' in filename:
         # print(filename)
         filename_list.append(filename)
 
@@ -71,7 +71,7 @@ for filename in filenames_folder:
 # for combination in itertools.product(controller_options, flying_options, feedback_options):
 #     labels.append('_'.join(combination))
 
-
+task_situation_awareness_list = [[] for _ in range(len(categories))]
 task_duration_list = [[] for _ in range(len(categories))]
 task_distance_list = [[] for _ in range(len(categories))]
 task_vel_mean_list = [[] for _ in range(len(categories))]
@@ -160,6 +160,7 @@ for filename in filename_list:
                 continue # skip the first line
             if 'situation_awareness' in data.keys():
                 print('situation_awareness', data['situation_awareness'])
+                task_situation_awareness_list[category_index].append(data['situation_awareness'])
                 continue
             # Append data to lists
             timestamps.append(data['timestamp'])
@@ -266,30 +267,21 @@ for filename in filename_list:
 # print("Task Collision Count List:", task_collision_count_list)
 
 titles = [
-    'Task Duration',
-    'Task Distance',
-    'Task Velocity Mean',
-    'Task Velocity STD',
-    'Task Input Diff Mean',
-    'Task Input Diff STD',
+    'Task Total Distance',
     'Task Collision Duration',
-    'Task Collision Count'
+    'Task Input Disagreement'
 ]
 
 # Data for each subplot
 data = [
-    task_duration_list,
     task_distance_list,
-    task_vel_mean_list,
-    task_vel_std_list,
-    task_input_mean_list,
-    task_input_std_list,
     task_collision_duration_list,
-    task_collision_count_list
+    task_input_mean_list
 ]
 
-
 print(task_collision_count_list)
+
+'''
 
 def generate_gradient_colormaps(base_colors):
     """
@@ -327,21 +319,80 @@ for i, (color_name, gradients) in enumerate(gradient_colormaps.items()):
 cmaps = np.array(cmaps).reshape(3, 5, 4)
 cmaps = cmaps.transpose(1, 0, 2).reshape(15, 4)
 
+'''
+
+
+import matplotlib.colors as mcolors
+# Get the RGBA value of gray
+rgba_gray = mcolors.to_rgba('gray')
+print(rgba_gray)
+# Get the colormap "Set2"
+cmap = plt.get_cmap("Paired")
+# Extract the first five colors
+colors = [cmap(i) for i in range(4)]
+colors.insert(0, rgba_gray)
+cmaps = []
+for color in colors:
+    cmaps.append(color)
+    cmaps.append(color)
+    cmaps.append(color)
+print(cmaps)
+
 # Create subplots
-# plt.clf()
-fig, axs = plt.subplots(8, figsize=(10, 40))
+fig, axs = plt.subplots(len(data), figsize=(10, 40))
+
+# Custom positions
+group_size = 3
+space_between_groups = 1
+n_groups = 5
+positions = []
+for i in range(n_groups):
+    start_pos = i * (group_size + space_between_groups)
+    positions.extend([start_pos + j for j in range(group_size)])
+print(positions)
+
+xticklabels = ['Forward', 'Right\nNA', 'Upward', '', '\nFSC', '', '', '\nFSA', '', '', '\nVSC', '', '', '\nVSA', '']
+tempylabels = ['' for _ in range(15)]
+ylabels = ['distance (m)', 'input difference (m/s^2)', 'collision duration (frames)']
+
+
+import pandas as pd
+
+# input is a list of lists, each list is a list of values for a category
+# save the data to a csv file using pandas
+def save_to_csv(data, filename):
+    column_names = [
+        'NA_Forward', 'NA_Right', 'NA_Upward', 
+        'FSC_Forward', 'FSC_Right', 'FSC_Upward',
+        'FSA_Forward', 'FSA_Right', 'FSA_Upward',
+        'VSC_Forward', 'VSC_Right', 'VSC_Upward',
+        'VSA_Forward', 'VSA_Right', 'VSA_Upward'
+    ]
+    data = np.array(data)
+    data = data.T
+    df = pd.DataFrame(data, columns=column_names)
+    df.to_csv(filename)
 
 # Plot each bar chart
 for i, ax in enumerate(axs):
+    save_to_csv(data[i], 'results/' + titles[i] + '.csv')
     data_mean = [np.mean(data[i][j]) for j in range(len(categories))]
-    data_std = [np.std(data[i][j]) for j in range(len(categories))]
-    ax.bar(np.arange(len(categories)), data_mean, yerr=data_std, color=cmaps, align='center', alpha=0.5, ecolor='black', capsize=10)
+    data_std = [np.std(data[i][j], ddof=1) / np.sqrt(len(data[i][j])) for j in range(len(categories))]
+    bars = ax.bar(positions, data_mean, yerr=data_std, color=cmaps, align='center', alpha=0.5, ecolor='black', capsize=10)
     ax.set_title(titles[i])
-    ax.set_ylabel('Value')
-    ax.set_xticks(np.arange(len(categories)))
+    ax.set_ylabel(ylabels[i])
+    ax.set_xticks(positions)
     if i == axs.size - 1:
-        ax.set_xticklabels(categories, rotation=45, ha='right')
+        ax.set_xticklabels(xticklabels, ha='center')
+    else:
+        ax.set_xticklabels(tempylabels, ha='center')
     # ax.set_ylim(0, max(data_mean) + max(data_mean) * 0.1)  # Ensure the bar is visible and has some space above
 
-plt.tight_layout()
+# plt.tight_layout()
 plt.show()
+
+# for i in range(len(categories)):
+#     print('category = ', categories[i])
+#     for sa in task_situation_awareness_list[i]:
+#         print(sa['Question1'].replace('\n', ' '))
+#     print('\n')
