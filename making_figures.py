@@ -1,11 +1,17 @@
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import math
+import numpy as np
 
 def read_data_csv(filename):
     data = pd.read_csv(filename)
-    stats = data.describe().T  # Transpose for easier plotting
-    return stats['mean'], stats['std']
+    data = data.to_numpy().T
+    # return mean and standard error
+    print(data.shape)
+    mean = np.mean(data, axis=1)
+    sem = np.std(data, axis=1, ddof=1) / math.sqrt(data.shape[1])
+    return mean, sem
 
 # Step 1: Load your data
 distance_mean, distance_std = read_data_csv('results/Task Distance.csv')
@@ -61,14 +67,14 @@ for i in range(n_groups):
     positions.extend([start_pos + j for j in range(group_size)])
 print(positions)
 
-xticklabels = ['\nForward', 'NA\nRight', '\nUpward', '', '\nFSC', '', '', '\nFSA', '', '', '\nVSC', '', '', '\nVSA', '']
+xticklabels = ['Forward', 'Right\nNA', 'Upward', '', '\nFSC', '', '', '\nFSA', '', '', '\nVSC', '', '', '\nVSA', '']
 tempylabels = ['' for _ in range(15)]
 ylabels = ['distance (m)', 'input difference (m/s^2)', 'collision duration (frames)']
 
 
 # Plot each bar chart
 for i, ax in enumerate(axs):
-    bars = ax.bar(positions, data_mean[i], yerr=data_std[i], color=cmaps, align='center', alpha=0.5, ecolor='black', capsize=10)
+    bars = ax.bar(positions, data_mean[i], yerr=data_std[i], color=cmaps, align='center', alpha=0.5, ecolor='black', capsize=5)
     ax.set_title(titles[i])
     ax.set_ylabel(ylabels[i])
     ax.set_xticks(positions)

@@ -56,7 +56,7 @@ categories = [
 filenames_folder = os.listdir('results')
 filename_list = []
 for filename in filenames_folder:
-    if 'formal' in filename and not 'formalp5' in filename and not 'formalp7' in filename:
+    if 'formalp12' in filename and not 'formalp5' in filename and not 'formalp7' in filename:
         # print(filename)
         filename_list.append(filename)
 
@@ -265,6 +265,8 @@ for filename in filename_list:
 # print("Task Input Mean List:", task_input_mean_list)
 # print("Task Input STD List:", task_input_std_list)
 # print("Task Collision Count List:", task_collision_count_list)
+
+exit()
 
 titles = [
     'Task Total Distance',

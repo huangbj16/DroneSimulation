@@ -1,7 +1,8 @@
 import pandas as pd
+import math
 
 # Load the CSV file to get an overview of its structure
-file_path = '../Questionnaire_results/Haptic Drone Teleoperation In-study Questionnaire (Responses) - Form Responses 1.csv'
+file_path = '../Questionnaire_results/Haptic Drone Teleoperation In-study Questionnaire.csv'
 data = pd.read_csv(file_path)
 
 # Display the first few rows of the dataframe to understand its structure
@@ -18,21 +19,21 @@ print(data_order)
 
 import numpy as np
 
-question_summaries = np.zeros((5, 10, 10))
+question_summaries = np.zeros((10, 5, 10))
+
+mapping = [0, 3, 4, 1, 2]
 
 # iterate through each row and each column by index
 offset = 3
 for i in range(len(data)):
     for j in range(5):
         for k in range(10):
-            question_summaries[data_order[i][j], k, i] = data.iloc[i, j*10+k+offset]
+            question_summaries[k, mapping[data_order[i][j]], i] = data.iloc[i, j*10+k+offset]
 
-# print(question_summaries)
-
-question_means = np.mean(question_summaries, axis=2)
-
-print(question_means)
-print(question_means.shape)
+# question_means = np.mean(question_summaries, axis=2)
+# question_std = np.std(question_summaries, axis=2)
+# print(question_means)
+# print(question_means.shape)
 
 import matplotlib.pyplot as plt
 
@@ -49,58 +50,134 @@ question_texts = [
     'If you felt haptic feedback, how much did the feedback help you navigate the robot?'
 ]
 
-fig, ax = plt.subplots(5, 2, figsize=(10, 20))
-for i in range(10):
-    ax[i%5, int(i/5)].set_title(question_texts[i])
-    ax[i%5, int(i/5)].bar(np.arange(5), question_means[:, i])
+# question_texts_brief = [
+#     'Mental demand',
+#     'Physical demand',
+#     'Temporal Demand',
+#     'Performance',
+#     'Effort',
+#     'Frustration',
+#     'Sum of Task Load',
+# ]
+
+# data_nasatlx = np.zeros((7, 5, 10))
+# data_nasatlx[:6, :, :] = (question_summaries[:6, :, :] * 3 - 2) * 5
+# data_nasatlx[6, :, :] = np.sum(data_nasatlx[:6, :, :], axis=0) / 6
+
+# category_names = [
+#     'NA',
+#     'FSC',
+#     'FSA',
+#     'VSC',
+#     'VSA'
+# ]
+
+# category_names_blank = [
+#     '',
+#     '',
+#     '',
+#     '',
+#     ''
+# ]
+
+
+# import matplotlib.colors as mcolors
+# # Get the RGBA value of gray
+# rgba_gray = mcolors.to_rgba('gray')
+# print(rgba_gray)
+# # Get the colormap "Set2"
+# cmap = plt.get_cmap("Paired")
+# # Extract the first five colors
+# colors = [cmap(i) for i in range(4)]
+# colors.insert(0, rgba_gray)
+
+
+# fig, axs = plt.subplots(1, 7, figsize=(20, 5))
+# for i,ax in enumerate(axs):
+#     ax.set_title(question_texts_brief[i])
+#     ax.bar(np.arange(5), np.mean(data_nasatlx[i, :, :] ,axis=1), yerr=np.std(data_nasatlx[i, :, :], axis=1, ddof=1)/math.sqrt(10), color=colors, align='center', alpha=0.5, ecolor='black', capsize=5)
+#     # ax.boxplot(data_nasatlx[i, :, :].T)
+#     # ax[i%5, int(i/5)].set_title(f'Question {i+1}')
+#     ax.set_xticks(np.arange(5))
+#     if i == 0:
+#         ax.set_xticklabels(category_names)
+#         ax.set_ylabel('Score')
+#     elif i == 6:
+#         ax.set_xticklabels(category_names)
+#         ax.set_ylabel('Average Score')
+#     else:
+#         ax.set_xticklabels(category_names_blank)
+#     ax.set_ylim(0, 100)
+
+# plt.tight_layout()
+# plt.show()
+
+
+
+
+
+
+
+
+
+
+
+question_texts_brief = [
+    'Q1',
+    'Q2',
+    'Q3',
+    'Q4',
+    'Sense of Control Authority'
+]
+
+data_control = np.zeros((4, 5, 10))
+data_control[:4, :, :] = (question_summaries[6:, :, :] * 3 - 2) * 5
+# data_control[4, :, :] = np.sum(data_control[:4, :, :], axis=0) / 4
+
+category_names = [
+    'NA',
+    'FSC',
+    'FSA',
+    'VSC',
+    'VSA'
+]
+
+category_names_blank = [
+    '',
+    '',
+    '',
+    '',
+    ''
+]
+
+
+import matplotlib.colors as mcolors
+# Get the RGBA value of gray
+rgba_gray = mcolors.to_rgba('gray')
+print(rgba_gray)
+# Get the colormap "Set2"
+cmap = plt.get_cmap("Paired")
+# Extract the first five colors
+colors = [cmap(i) for i in range(4)]
+colors.insert(0, rgba_gray)
+
+
+fig, axs = plt.subplots(1, 4, figsize=(20, 5))
+for i,ax in enumerate(axs):
+    ax.set_title(question_texts_brief[i])
+    ax.bar(np.arange(5), np.mean(data_control[i, :, :] ,axis=1), yerr=np.std(data_control[i, :, :], axis=1, ddof=1)/math.sqrt(10), color=colors, align='center', alpha=0.5, ecolor='black', capsize=5)
+    # ax.boxplot(data_nasatlx[i, :, :].T)
     # ax[i%5, int(i/5)].set_title(f'Question {i+1}')
-    ax[i%5, int(i/5)].set_xticks(np.arange(5))
-    ax[i%5, int(i/5)].set_yticks(np.arange(1, 8))
+    ax.set_xticks(np.arange(5))
+    if i == 0:
+        ax.set_xticklabels(category_names)
+        ax.set_ylabel('Score')
+    elif i == 6:
+        ax.set_xticklabels(category_names)
+        ax.set_ylabel('Average Score')
+    else:
+        ax.set_xticklabels(category_names_blank)
+    ax.set_ylim(0, 100)
 
+# plt.tight_layout()
 plt.show()
-
-exit()
-
-# Define a function to map questions to their respective conditions based on the order
-def map_questions_to_conditions(row, num_conditions=5):
-    """
-    For a given row, map each question set to its respective condition based on the order provided.
-    """
-    condition_order_str = str(row['Order of conditions'])
-    condition_order = [int(condition_order_str[i]) for i in range(len(condition_order_str))]
-    print(condition_order)
-    
-    # Create a dictionary to hold the sum of responses for each condition
-    condition_sums = {condition: 0 for condition in range(1, num_conditions + 1)}
-    total_responses_per_condition = {condition: 0 for condition in range(1, num_conditions + 1)}
-    
-    # Iterate over each condition and sum the responses
-    for condition_idx, condition in enumerate(condition_order, start=1):
-        # Identify the columns related to this condition
-        condition_columns = [col for col in data.columns if col.endswith(f".{condition_idx-1}") or (col.endswith('task?') and condition_idx == 1)]
-        
-        # Sum the responses for this condition
-        for col in condition_columns:
-            condition_sums[condition] += row[col]
-            total_responses_per_condition[condition] += 1
-    
-    # Calculate average responses for each condition
-    condition_averages = {condition: (condition_sums[condition] / total_responses_per_condition[condition]) if total_responses_per_condition[condition] > 0 else 0 for condition in condition_sums}
-    
-    return condition_averages
-
-# Apply the function to each row and collect the summarized data
-summarized_data = data.apply(lambda row: map_questions_to_conditions(row), axis=1)
-
-# Aggregate the summarized data across all participants for each condition
-final_summary = {condition: 0 for condition in range(1, 6)}
-total_participants = len(summarized_data)
-
-for participant_data in summarized_data:
-    for condition, average in participant_data.items():
-        final_summary[condition] += average
-
-# Calculate the overall average for each condition across all participants
-overall_averages = {condition: final_summary[condition] / total_participants for condition in final_summary}
-
-print(overall_averages)
