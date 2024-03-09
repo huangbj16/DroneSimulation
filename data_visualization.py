@@ -56,7 +56,7 @@ categories = [
 filenames_folder = os.listdir('results')
 filename_list = []
 for filename in filenames_folder:
-    if 'formalp12' in filename and not 'formalp5' in filename and not 'formalp7' in filename:
+    if 'formalp' in filename and not 'formalp5' in filename and not 'formalp7' in filename:
         # print(filename)
         filename_list.append(filename)
 
@@ -80,6 +80,7 @@ task_input_mean_list = [[] for _ in range(len(categories))]
 task_input_std_list = [[] for _ in range(len(categories))]
 task_collision_duration_list = [[] for _ in range(len(categories))]
 task_collision_count_list = [[] for _ in range(len(categories))]
+task_collision_duration_sa_list = [[] for _ in range(len(categories))]
 
 # task_duration_list = []
 # task_distance_list = []
@@ -132,6 +133,9 @@ for filename in filename_list:
     controller_inputs = []
     input_diffs = []
     collision_list = []
+    sa_timestamp_start = -1
+    sa_timestamp_end = -1
+
     print('load file = ', filename)
 
     # find category of the filename
@@ -159,6 +163,7 @@ for filename in filename_list:
                     exit(-1)
                 continue # skip the first line
             if 'situation_awareness' in data.keys():
+                sa_timestamp_start = len(timestamps)-1
                 print('situation_awareness', data['situation_awareness'])
                 task_situation_awareness_list[category_index].append(data['situation_awareness'])
                 continue
@@ -169,6 +174,8 @@ for filename in filename_list:
             collision_statuses.append(1 if data['collision']['has_collided'] else 0)
             collision_list.append(data['collision'])
             controller_inputs.append(data['controller_input'])
+            if sa_timestamp_start != -1 and sa_timestamp_end == -1 and data['timestamp'] - timestamps[sa_timestamp_start] >= 5.0e9:
+                sa_timestamp_end = len(timestamps)-1
             if np.linalg.norm(data['input_diff']) > 100:
                 print("error input", data['optimization'], data['user_input'], data['safe_input'])
                 input_diffs.append([0, 0, 0])
@@ -190,6 +197,7 @@ for filename in filename_list:
     positions = positions[start_frame:end_frame]
     velocities = velocities[start_frame:end_frame]
     collision_statuses = collision_statuses[start_frame:end_frame]
+    collision_statuses_sa = collision_statuses[sa_timestamp_start:sa_timestamp_end]
     input_diffs = input_diffs[start_frame:end_frame]
     controller_inputs = controller_inputs[start_frame:end_frame]
     collision_list = collision_list[start_frame:end_frame]
@@ -202,6 +210,7 @@ for filename in filename_list:
     positions = np.array(positions)
     velocities = np.array(velocities)
     collision_statuses = np.array(collision_statuses)
+    collision_statuses_sa = np.array(collision_statuses_sa)
     input_diffs = np.array(input_diffs)
     positions_magnitude = np.linalg.norm(positions, axis=1)
     velocities_magnitude = np.linalg.norm(velocities, axis=1)
@@ -216,6 +225,7 @@ for filename in filename_list:
     task_input_mean = np.mean(input_diffs_magnitude)
     task_input_std = np.std(input_diffs_magnitude)
     task_collision_duration = np.sum(collision_statuses)
+    task_collision_duration_sa = np.sum(collision_statuses_sa)
 
     task_duration_list[category_index].append(task_duration)
     task_distance_list[category_index].append(task_distance)
@@ -224,6 +234,7 @@ for filename in filename_list:
     task_input_mean_list[category_index].append(task_input_mean)
     task_input_std_list[category_index].append(task_input_std)
     task_collision_duration_list[category_index].append(task_collision_duration)
+    task_collision_duration_sa_list[category_index].append(task_collision_duration_sa)
     task_collision_count_list[category_index].append(collision_count)
     
     # # Plotting
@@ -266,22 +277,32 @@ for filename in filename_list:
 # print("Task Input STD List:", task_input_std_list)
 # print("Task Collision Count List:", task_collision_count_list)
 
-exit()
-
 titles = [
-    'Task Total Distance',
+    'Task Duration',
+    'Task Distance',
+    'Task Velocity Mean',
+    'Task Velocity STD',
+    'Task Input Mean',
+    'Task Input STD',
     'Task Collision Duration',
-    'Task Input Disagreement'
+    'Task Collision Count',
+    'Task Collision Duration SA'
 ]
 
 # Data for each subplot
 data = [
+    task_duration_list,
     task_distance_list,
+    task_vel_mean_list,
+    task_vel_std_list,
+    task_input_mean_list,
+    task_input_std_list,
     task_collision_duration_list,
-    task_input_mean_list
+    task_collision_count_list,
+    task_collision_duration_sa_list
 ]
 
-print(task_collision_count_list)
+# print(task_collision_count_list)
 
 '''
 
@@ -323,11 +344,12 @@ cmaps = cmaps.transpose(1, 0, 2).reshape(15, 4)
 
 '''
 
+print("collision sa = \n", task_collision_duration_sa_list)
 
 import matplotlib.colors as mcolors
 # Get the RGBA value of gray
 rgba_gray = mcolors.to_rgba('gray')
-print(rgba_gray)
+# print(rgba_gray)
 # Get the colormap "Set2"
 cmap = plt.get_cmap("Paired")
 # Extract the first five colors
@@ -338,7 +360,7 @@ for color in colors:
     cmaps.append(color)
     cmaps.append(color)
     cmaps.append(color)
-print(cmaps)
+# print(cmaps)
 
 # Create subplots
 fig, axs = plt.subplots(len(data), figsize=(10, 40))
@@ -355,7 +377,7 @@ print(positions)
 
 xticklabels = ['Forward', 'Right\nNA', 'Upward', '', '\nFSC', '', '', '\nFSA', '', '', '\nVSC', '', '', '\nVSA', '']
 tempylabels = ['' for _ in range(15)]
-ylabels = ['distance (m)', 'input difference (m/s^2)', 'collision duration (frames)']
+ylabels = ['distance (m)', 'collision duration (frames)',  'collision duration (frames)', 'input difference (m/s^2)']
 
 
 import pandas as pd
@@ -377,12 +399,13 @@ def save_to_csv(data, filename):
 
 # Plot each bar chart
 for i, ax in enumerate(axs):
-    save_to_csv(data[i], 'results/' + titles[i] + '.csv')
+    # save_to_csv(data[i], 'results/' + titles[i] + '.csv')
     data_mean = [np.mean(data[i][j]) for j in range(len(categories))]
     data_std = [np.std(data[i][j], ddof=1) / np.sqrt(len(data[i][j])) for j in range(len(categories))]
     bars = ax.bar(positions, data_mean, yerr=data_std, color=cmaps, align='center', alpha=0.5, ecolor='black', capsize=10)
     ax.set_title(titles[i])
-    ax.set_ylabel(ylabels[i])
+    # ax.set_ylabel(ylabels[i])
+    ax.set_ylabel(titles[i])
     ax.set_xticks(positions)
     if i == axs.size - 1:
         ax.set_xticklabels(xticklabels, ha='center')
